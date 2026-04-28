@@ -299,25 +299,31 @@ export function CardsEditor({
             gap: `${params.marginBetween}px`,
           }}
         >
-          {params.cards.map((card, idx) => (
+          {params.cards.map((card, idx) => {
+            const alignClass =
+              params.alignment === 'left'
+                ? styles.cardAlignLeft
+                : params.alignment === 'right'
+                ? styles.cardAlignRight
+                : styles.cardAlignCenter;
+            const hoverClass =
+              params.hoverEffect === 'elevate'
+                ? styles.cardElevate
+                : params.hoverEffect === 'shrink'
+                ? styles.cardShrink
+                : '';
+            return (
             <div
               key={idx}
-              className={`${styles.card} ${
+              className={`${styles.card} ${alignClass} ${hoverClass} ${
                 idx === selectedCardIdx ? styles.cardSelected : ''
-              } ${
-                params.hoverEffect === 'elevate'
-                  ? styles.cardElevate
-                  : params.hoverEffect === 'shrink'
-                  ? styles.cardShrink
-                  : ''
               }`}
               onClick={() => {
                 setSelectedCardIdx(idx);
                 setTab('content');
               }}
               style={{
-                padding: `${params.paddingInside}px`,
-                textAlign: params.alignment,
+                padding: params.paddingInside > 0 ? `${params.paddingInside + 16}px` : undefined,
                 color:
                   card.color !== 'default' && card.color.startsWith('#')
                     ? card.color
@@ -337,7 +343,8 @@ export function CardsEditor({
               <div className={styles.cardTitle}>{card.title}</div>
               <div className={styles.cardBody}>{card.body}</div>
             </div>
-          ))}
+            );
+          })}
           <div className={styles.addCard} onClick={addCard}>
             +
           </div>
