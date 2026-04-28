@@ -54,14 +54,6 @@ async function loadIconData(): Promise<Record<string, IconMeta>> {
   return (await res.json()) as Record<string, IconMeta>;
 }
 
-function isEditPage(): boolean {
-  if (typeof window === 'undefined' || typeof location === 'undefined') return false;
-  const url = location.href;
-  return /editpage\.action|editblogpost\.action|frontend\.editor\.v4|action=edit/i.test(
-    url
-  );
-}
-
 const demoRoot =
   typeof document !== 'undefined'
     ? document.getElementById('wonikips-editor-demo-root')
@@ -88,9 +80,12 @@ if (demoRoot) {
     .catch((err) => {
       console.error('[WonikIPS Editor] Demo iconData load failed:', err);
     });
-} else if (isEditPage()) {
+} else {
+  // Confluence 환경 — 모든 페이지에서 V4 host 등록 시도.
+  // setMacroJsOverride 자체는 매크로 브라우저 열려야 발동하니 일반 페이지엔 무해.
+  // URL 패턴 매칭(editpage/resumedraft/createpage 등 다양)이 깨지기 쉬워 가드 제거.
   try {
-    console.log('[WonikIPS Editor] Edit page detected, scheduling V4 host registration');
+    console.log('[WonikIPS Editor] Scheduling V4 host registration');
     const host = createV4Host({
       iconData: {},
       iconLoader: loadIconData,
@@ -99,6 +94,4 @@ if (demoRoot) {
   } catch (err) {
     console.error('[WonikIPS Editor] Failed to register V4 host:', err);
   }
-} else {
-  console.log('[WonikIPS Editor] Not edit page, skipping V4 host registration');
 }

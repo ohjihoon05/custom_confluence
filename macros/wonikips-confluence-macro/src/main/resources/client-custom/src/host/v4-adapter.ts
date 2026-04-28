@@ -190,19 +190,28 @@ export function createV4Host({
         getIcons();
       }
 
-      if (tryRegister(getIcons)) return;
+      const initialResult = tryRegister(getIcons);
 
-      const onReady = (): void => {
-        if (!registered) tryRegister(getIcons);
+      // Aura가 page-edit-loaded 이벤트에서 재등록할 수 있어 후행 재등록 필요.
+      // initial 등록 성공해도 이벤트 시점마다 다시 우리 핸들러로 덮어씀 (late wins).
+      const reRegister = (): void => {
+        const cw2 = getConfluenceWindow();
+        if (!cw2?.AJS?.MacroBrowser?.setMacroJsOverride) return;
+        cw2.AJS.MacroBrowser.setMacroJsOverride(MACRO_NAME, {
+          opener: (macro) => openCardsDialog(macro, getIcons()),
+        });
+        console.log('[WonikIPS Editor] Re-registered V4 override on event');
       };
 
       try {
-        cw.AJS?.bind?.('init.rte', onReady);
-        cw.AJS?.bind?.('page-edit-loaded', onReady);
-        cw.AJS?.toInit?.(onReady);
+        cw.AJS?.bind?.('init.rte', reRegister);
+        cw.AJS?.bind?.('page-edit-loaded', reRegister);
+        cw.AJS?.toInit?.(reRegister);
       } catch (err) {
         console.warn('[WonikIPS Editor] AJS bind failed:', err);
       }
+
+      if (initialResult) return;
 
       let attempts = 0;
       const interval = window.setInterval(() => {
