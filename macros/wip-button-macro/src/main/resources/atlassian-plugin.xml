@@ -1,0 +1,43 @@
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2">
+    <plugin-info>
+        <description>${project.description}</description>
+        <version>${project.version}</version>
+        <vendor name="${project.organization.name}" url="${project.organization.url}" />
+        <param name="plugin-icon">images/pluginIcon.png</param>
+        <param name="plugin-logo">images/pluginLogo.png</param>
+    </plugin-info>
+
+    <resource type="i18n" name="i18n" location="wip-button-macro"/>
+
+    <xhtml-macro name="wip-button" key="wip-button-macro"
+                 class="com.ohjih.button.macro.ButtonMacro"
+                 icon="/download/resources/${atlassian.plugin.key}/images/pluginIcon.png">
+        <category name="formatting"/>
+        <description key="macro.wip-button.description"/>
+        <parameters>
+            <parameter name="label"        type="string" default="버튼"/>
+            <parameter name="href"         type="string" default=""/>
+            <parameter name="target"       type="enum"   default="_self">
+                <value name="_self"/>
+                <value name="_blank"/>
+            </parameter>
+            <parameter name="background"   type="string" default="#0052CC"/>
+            <parameter name="color"        type="string" default="#ffffff"/>
+            <parameter name="size"         type="enum"   default="medium">
+                <value name="small"/>
+                <value name="medium"/>
+                <value name="large"/>
+            </parameter>
+            <parameter name="style"        type="enum"   default="filled">
+                <value name="filled"/>
+                <value name="outlined"/>
+            </parameter>
+            <parameter name="elevation"    type="enum"   default="flat">
+                <value name="flat"/>
+                <value name="elevated"/>
+            </parameter>
+            <parameter name="borderRadius" type="string" default="6"/>
+        </parameters>
+    </xhtml-macro>
+
+</atlassian-plugin>

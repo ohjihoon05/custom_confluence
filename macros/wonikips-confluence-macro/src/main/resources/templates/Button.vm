@@ -1,0 +1,136 @@
+<span style="display: inline-block;">
+#if (!$label && !$color && !$size && !$outlined && !$background)
+  #set($label = "Please configure")
+  #set($color = "#ffffff")
+  #set($background = "#000000")
+  #set($size = "medium")
+  #set($outlined = "regular")
+#end
+#if ($size == "large")
+  #set($computedSize = 1.7)
+#elseif ($size == "medium")
+  #set($computedSize = 1.35)
+#else
+  #set($computedSize = 1)
+#end
+
+#if ($outlined == "outlined")
+  #set($computedForeground = $background)
+  #set($computedBackground = "transparent")
+#else
+  #set($computedForeground = $color)
+  #set($computedBackground = $background)
+#end
+
+<style>
+  .$className {
+    background: #ddd;
+
+    text-decoration: none !important;
+    color: $computedForeground !important;
+
+    box-sizing: border-box;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    word-break: break-word; 
+    transition: background 0.5s;
+
+    #if ($label == "")
+    #set($noLabelSize = $computedSize * 40)
+    width: ${noLabelSize}px;
+    height: ${noLabelSize}px;
+    #else
+    #set($paddingV = $computedSize * 8)
+    #set($paddingH = $computedSize * 14)
+    padding: ${paddingV}px ${paddingH}px;
+    #end
+    #if ($iconPosition == "right") 
+    flex-direction: row-reverse;
+    #else 
+    flex-direction: row;
+    #end
+
+    border-radius: ${borderRadius}px;
+
+
+    #set($fontSize = $computedSize * 12)
+    font-size: ${fontSize}px;
+
+
+    #if ($elevation == "elevated")
+    box-shadow: 0 0.2rem 0.5rem ${background}99;
+    #end
+
+    #if ($outlined == "outlined")
+    border: 2px solid $computedForeground;
+    #else
+    border: 2px solid $computedBackground;
+    #end
+
+    background: $computedBackground;
+    color: $computedForeground !important;
+  }
+
+  #if ($outlined == "outlined")
+  .${className}:hover{
+    background: $computedForeground;
+    color: $color !important;
+  }
+  .${className}:hover svg path {
+    fill: $color !important;
+  }
+  #else
+  .${className}:hover{
+    background: transparent;
+    color: $computedBackground !important;
+    border: 2px solid $computedBackground;
+  }
+  .${className}:hover svg path {
+    fill: $computedBackground !important;
+  }
+  #end
+
+  .$className svg, .$className img {
+    #if ($iconPosition == "right" && $label != "") 
+    margin-left: 10px;
+    #elseif ($iconPosition == "left" && $label != "") 
+    margin-right: 10px;
+    #end
+    height: ${fontSize}px !important;
+    width: ${fontSize}px !important;
+  }
+
+  .$className svg path {
+    fill: $computedForeground !important;
+  }
+</style>
+
+
+#if(!$hrefTarget)
+#set($hrefTarget="")
+#end
+
+#if($computedLink != "#")
+<a href="$computedLink" class="$className" target="$hrefTarget" data-aura-link="$hrefType" data-linked-resource-id="$href">
+#else
+<a class="$className">
+#end
+  #set($renderedIconWithHtml = $renderedIcon) 
+  #if ($renderedIconWithHtml) 
+  $renderedIconWithHtml
+  #end
+  #if($label.equals("") && !$icon)
+    #set($labelWithHtml = "&nbsp;")
+  #else
+    #set($labelWithHtml = $label)
+  #end
+  #if(!$size)
+  Please configure this button
+  #else
+  <span>$labelWithHtml</span>
+  #end
+</a>
+
+</span>

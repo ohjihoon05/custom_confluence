@@ -1,0 +1,45 @@
+/* Aura Style UI Overrides */
+.aura-sidebar .aura-field-group {
+    margin-bottom: 20px;
+}
+
+.aura-sidebar label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #5e6c84;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.aura-sidebar .aura-input,
+.aura-sidebar .aura-textarea,
+.aura-sidebar .aura-select {
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid #dfe1e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #172b4d;
+    background: #fafbfc;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.aura-sidebar .aura-input:focus,
+.aura-sidebar .aura-textarea:focus,
+.aura-sidebar .aura-select:focus {
+    border-color: #4c9aff;
+    background: #fff;
+    outline: none;
+}
+
+.aura-sidebar .aura-textarea {
+    resize: vertical;
+}
+
+/* 팝업 오버레이 제거 보정 */
+#aura-cards-dialog * {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}

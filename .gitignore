@@ -7,3 +7,31 @@ tsconfig.tsbuildinfo
 # phase execution outputs
 phases/**/phase*-output.json
 phases/**/step*-output.json
+
+# Maven build artifacts
+target/
+*.bak
+
+# Aura 원본 JAR (라이선스 이슈, repo에 올리지 않음)
+aura-3.8.0.jar
+mine.jar
+
+# Aura 디컴파일/추출 잔재 (사용자 부분 편집 상태, 신뢰 X)
+mine/
+mine.png
+mine2.png
+
+# Local Claude config / runtime
+.claude/logs/
+.claude/settings.local.json
+.claude/ralph-loop.local.md
+
+# Specify
+.specify/
+
+# Vite dev server
+macros/wonikips-confluence-macro/src/main/resources/client-custom/dist/
+macros/wonikips-confluence-macro/src/main/resources/client-custom/node_modules/
+
+# 일회성 스크립트
+genhash.py

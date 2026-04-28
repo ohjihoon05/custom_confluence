@@ -1,0 +1,132 @@
+#if(!$background && !$backgroundSecondary) 
+#set($background = "#cccccc")
+#set($backgroundSecondary = "#cccccc")
+#end
+#set($hasNoTitle = (!$title || $title.equals("")) && (!$renderedIcon || $renderedIcon.equals("")))
+<style>
+    .$className {
+        flex: 1;
+        display: flex;
+        #if ($titlePosition == "left")
+        flex-direction: row;
+        #elseif ($titlePosition == "right")
+        flex-direction: row-reverse;
+        #else
+        flex-direction: column;
+        #end
+        background-color: ${background};
+
+        #if ($margin == "margin")
+        margin: 10px;
+        #end
+
+        #if ($elevation == "elevated")
+        box-shadow: 0 10px 10px -5px ${background}99;
+        #end
+
+        #if ($rounded == "rounded")
+        border-radius: 10px;
+        overflow: hidden;
+        #end
+    }
+
+    .$className .panel-section {
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+    }
+      
+    .$className hr {
+      width: 100%;
+    }
+    
+    .$className .panel-section.panel-title-section { 
+        #if ($hasNoTitle)
+        display: none;
+        #end
+        flex-direction: row;
+
+        #if ($titleAlign == "center")
+        justify-content: center;
+        #else 
+        justify-content: flex-$titleAlign;
+        #end 
+      }
+
+    .$className .panel-section.body-section {
+        flex:1;
+        background-color: $backgroundSecondary;
+        border-top: none;
+        border: ${border}px solid $background;
+        #if ($rounded == "rounded" && $border != "0")
+        border-radius: 10px;
+        #end
+    }
+
+    .$className .panel-title {
+        display: inline-flex;
+        align-items: center;
+        word-break: break-word; 
+        color: $color;
+
+        #if ($iconPosition == "right")
+        flex-direction: row-reverse;
+        #else
+        flex-direction: row;
+        #end
+
+        #if ($titleSize == "h1")
+        font-size: 28px;
+        #elseif ($titleSize == "h2")
+        font-size: 22px;
+        #elseif ($titleSize == "h3")
+        font-size: 18px;
+        #elseif ($titleSize == "h4")
+        font-size: 12px;
+        #end
+    }
+
+    .$className .panel-title svg, .$className .panel-title img {
+        #if ($iconPosition == "left")
+        margin-right: 1rem;
+        #else
+        margin-left: 1rem;
+        #end
+        #if ($titlePosition != "top" || !$title)
+        margin: 0 !important;
+        #end
+        #if ($titleSize == "h1")
+        max-height: 28px;
+        width: 28px;
+        #elseif ($titleSize == "h2")
+        max-height: 22px;
+        width: 22px;
+        #elseif ($titleSize == "h3")
+        max-height: 18px;
+        width: 18px;
+        #elseif ($titleSize == "h4")
+        max-height: 12px;
+        width: 12px;
+        #end
+    }
+
+</style>
+
+<div class="$className">
+  <div class="panel-section panel-title-section">
+    <div class="panel-title">
+      #set($renderedIconWithHtml = $renderedIcon) 
+      #if ($renderedIconWithHtml) 
+      $renderedIconWithHtml
+      #end
+      #if ($title && $titlePosition == "top")
+      #set($titleWithHtml = $title)
+      <span>$titleWithHtml</span>
+      #end
+    </div>
+  </div>
+  <div class="panel-section body-section">
+    #set($bodyWithHtml = $body)
+    $bodyWithHtml
+  </div>
+</div>

@@ -1,76 +1,125 @@
-# UI 디자인 가이드
+# UI 디자인 가이드 — 매크로 편집 UI
 
 ## 디자인 원칙
-1. {원칙 1 — 예: "도구처럼 보여야 한다. 마케팅 페이지가 아니라 매일 쓰는 대시보드."}
-2. {원칙 2}
-3. {원칙 3}
 
-## AI 슬롭 안티패턴 — 하지 마라
-| 금지 사항 | 이유 |
-|-----------|------|
-| backdrop-filter: blur() | glass morphism은 AI 템플릿의 가장 흔한 징후 |
-| gradient-text (배경 그라데이션 텍스트) | AI가 만든 SaaS 랜딩의 1번 특징 |
-| "Powered by AI" 배지 | 기능이 아니라 장식. 사용자에게 가치 없음 |
-| box-shadow 글로우 애니메이션 | 네온 글로우 = AI 슬롭 |
-| 보라/인디고 브랜드 색상 | "AI = 보라색" 클리셰 |
-| 모든 카드에 동일한 rounded-2xl | 균일한 둥근 모서리는 템플릿 느낌 |
-| 배경 gradient orb (blur-3xl 원형) | 모든 AI 랜딩 페이지에 있는 장식 |
+1. **Confluence에 녹아들 것** — 독자적인 디자인이 아니라 Atlassian Design System에 맞춘 UI
+2. **편집기는 도구다** — 화려함보다 즉각적인 피드백과 조작 편의성 우선
+3. **Aura를 참조하되 단순화** — 슬라이더, 정렬 버튼, 컬러 스와치 구조는 유지. 불필요한 옵션 제거
 
-## 색상
-### 배경
+## 편집 UI 레이아웃
+
+```
+┌─────────────────────────────────────────────────────┐
+│ 매크로 이름                    Tutorial  Feedback    │
+├──────────────────┬──────────────────────────────────┤
+│                  │                                  │
+│  Font Weight     │                                  │
+│  [Bold      ▼]   │         미리보기 영역             │
+│                  │                                  │
+│  Text Alignment  │         Demo Title               │
+│  [≡] [≡] [≡]    │                                  │
+│                  │                                  │
+│  Font Size       │                                  │
+│  [48] ────────   │                                  │
+│                  │                                  │
+│  Color           │                                  │
+│  [Default   ▼]   │                                  │
+│  ⬤ ⬤ ⬤ ⬤       │                                  │
+│                  │                                  │
+│  Advanced        │                                  │
+│  HTML Tag        │                                  │
+│  [Headline 1 ▼]  │                                  │
+│                  │                                  │
+├──────────────────┴──────────────────────────────────┤
+│                              [Close]    [Save]       │
+└─────────────────────────────────────────────────────┘
+```
+
+## 색상 (Atlassian Design System 기준)
+
 | 용도 | 값 |
-|------|------|
-| 페이지 | {예: #0a0a0a} |
-| 카드 | {예: #141414} |
-
-### 텍스트
-| 용도 | 값 |
-|------|------|
-| 주 텍스트 | {예: text-white} |
-| 본문 | {예: text-neutral-300} |
-| 보조 | {예: text-neutral-400} |
-| 비활성 | {예: text-neutral-500} |
-
-### 데이터/시맨틱 색상
-| 용도 | 값 |
-|------|------|
-| {긍정/성공} | {예: #22c55e} |
-| {부정/에러} | {예: #ef4444} |
-| {중립/기본} | {예: #525252} |
+|---|---|
+| Primary Button | `#0052CC` |
+| Primary Button Hover | `#0747A6` |
+| 텍스트 기본 | `#172B4D` |
+| 텍스트 보조 | `#6B778C` |
+| 배경 | `#FFFFFF` |
+| 구분선 | `#DFE1E6` |
+| 입력 필드 테두리 | `#DFE1E6` |
+| 입력 필드 테두리 (포커스) | `#0052CC` |
 
 ## 컴포넌트
-### 카드
-```
-{예: rounded-lg bg-[#141414] border border-neutral-800 p-6}
+
+### 드롭다운
+```css
+border: 1px solid #DFE1E6;
+border-radius: 3px;
+padding: 6px 8px;
+font-size: 14px;
+color: #172B4D;
 ```
 
-### 버튼
-```
-Primary: {예: rounded-lg bg-white text-black hover:bg-neutral-200}
-Text:    {예: text-neutral-500 hover:text-neutral-300}
+### 정렬 버튼 (3종)
+```css
+/* 기본 */
+border: 1px solid #DFE1E6;
+border-radius: 3px;
+width: 32px; height: 32px;
+
+/* 선택됨 */
+background: #0052CC;
+border-color: #0052CC;
+color: white;
 ```
 
-### 입력 필드
-```
-{예: rounded-lg bg-neutral-900 border border-neutral-800 px-4 py-3}
+### 슬라이더 (Font Size)
+```css
+/* 숫자 입력 + range 슬라이더 조합 */
+input[type="number"]: width 48px, border 1px solid #DFE1E6
+input[type="range"]: accent-color #0052CC
 ```
 
-## 레이아웃
-- 전체 너비: {예: max-w-5xl}
-- 정렬: {예: 좌측 정렬 기본. 중앙 정렬 금지}
-- 간격: {예: gap-3~4, 섹션 간 space-y-8}
+### 컬러 피커
+네이티브 `<input type="color">` + HEX 텍스트 입력 조합.  
+스와치 방식 대신 자유 색상 선택 방식으로 확정.
+```css
+/* 컬러 피커 */
+input[type="color"]: width 40px, height 36px, border 2px solid #DFE1E6
+/* HEX 텍스트 입력 */
+font-family: monospace; text-transform: uppercase;
+/* 두 컨트롤은 양방향 동기화 — 한쪽 변경 시 나머지 자동 반영 */
+```
+
+### Save 버튼
+```css
+background: #0052CC;
+color: white;
+border-radius: 3px;
+padding: 6px 12px;
+font-weight: 500;
+```
+
+## 미리보기 영역
+
+- 체커보드 패턴 배경 (투명도 확인용, CSS linear-gradient 4중 조합)
+- 실시간 반영 — 파라미터 변경 즉시 미리보기 업데이트 (debounce 없음)
+- 미리보기 텍스트 소스: DOM `.page-title` → `document.title` → "Demo Title" 순 fallback
+- 흰색 카드 박스 위에 텍스트 렌더링 (box-shadow 포함)
+- 높이: 다이얼로그 전체 520px 중 패널 전체 사용
+
+## 구현 파일 위치
+
+| 파일 | 경로 |
+|------|------|
+| 편집 UI JS | `macros/wonikips-confluence-macro/src/main/resources/js/page-title-editor.js` |
+| 편집 UI CSS | `macros/wonikips-confluence-macro/src/main/resources/css/page-title-editor.css` |
+| 렌더링 템플릿 | `macros/wonikips-confluence-macro/src/main/resources/templates/page-title.vm` |
+| Java 매크로 | `macros/wonikips-confluence-macro/src/main/java/com/ohjih/macro/PageTitleMacro.java` |
 
 ## 타이포그래피
+
 | 용도 | 스타일 |
-|------|--------|
-| 페이지 제목 | {예: text-4xl font-semibold text-white} |
-| 카드 제목 | {예: text-sm font-medium text-neutral-400} |
-| 본문 | {예: text-sm text-neutral-300 leading-relaxed} |
-
-## 애니메이션
-- {허용할 애니메이션만 나열. 예: fade-in (0.4s), slide-up (0.5s)}
-- {그 외 모든 애니메이션 금지}
-
-## 아이콘
-- {예: SVG 인라인, strokeWidth 1.5}
-- {예: 아이콘 컨테이너(둥근 배경 박스)로 감싸지 않는다}
+|---|---|
+| 라벨 | `font-size: 12px; font-weight: 600; color: #6B778C` |
+| 입력값 | `font-size: 14px; color: #172B4D` |
+| 섹션 제목 (Advanced) | `font-size: 14px; font-weight: 600; color: #172B4D` |

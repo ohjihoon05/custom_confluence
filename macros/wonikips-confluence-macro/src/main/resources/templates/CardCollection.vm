@@ -1,0 +1,299 @@
+#if(!$maxWidth)
+#set($maxWidth = "1200px")
+#end
+#if(!$decoration)
+#set($decoration = "icon")
+#end
+
+<style>
+.${className}.aura-cards-wrapper {
+  margin: auto;
+
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc($maxWidth / $columns), 1fr));
+  max-width: $maxWidth;
+}
+
+@media only screen and (max-width: 600px) {
+  .${className}.aura-cards-wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+.aura-card-header {
+  display: flex;
+  width: 100%;
+}
+
+.$className .aura-card-icon {
+  display: flex;
+  #if($decoration != "icon")
+  display: none;
+  #end
+  justify-content: center;
+  align-items: center;
+}
+
+.$className .aura-card-image {
+  #if($decoration != "image")
+  display: none;
+  #else
+    #if($imagePosition == "top")
+    height: 999999px;
+    max-height: calc(${imageHeight}px * 4);
+    transition: max-height 0.5s;
+    #else
+    max-width: calc(${imageHeight}% / 2);
+    transition: max-width 0.5s;
+    #end
+  #end
+  background-size: cover;
+  background-position: center;
+  background-image: linear-gradient(45deg, #757575, #ececec);
+  width: 100%;
+}
+
+
+$className .aura-card-body {
+  display: block;
+}
+
+.$className .aura-card-header, .$className .aura-card-body {
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.$className .aura-card-header {
+  padding-bottom: 0;
+}
+
+.$className .aura-card-header-spacer {
+  #if($decoration != "icon")
+  display: none;
+  #end
+  height: 0.5rem;
+  width: 1.5rem;
+}
+
+.$className .aura-card-content-wrapper {
+  flex: 1;
+  padding: calc(${padding}px * 4) 0;
+  transition: padding 0.5s;
+}
+
+.$className .aura-card-body {
+  font-size: 14px;
+  padding-top: 0;
+}
+
+.$className .aura-card-body-spacer {
+  height: 1rem;
+}
+
+.$className .aura-card-header .aura-card-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.$className .aura-card-title {
+  font-size: 18px;
+  font-weight: bold;
+  word-break: break-word;
+  margin-top: 0;
+}
+
+.$className .aura-card, .$className a.aura-card {
+  box-sizing: border-box;
+  margin: ${gutter}px;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+
+.$className a[href='#'].aura-card {
+  cursor: default !important;
+}
+
+.$className .aura-card, $className, .$className .aura-card-preview-wrapper {
+  #if($decoration == "image")
+  display: flex;
+  #if($imagePosition == "top")
+  flex-direction: column;
+  #elseif($imagePosition == "left")
+  flex-direction: row;
+  #elseif($imagePosition == "right")
+  flex-direction: row-reverse;
+  #end
+  #end
+  transition: all 0.5s;
+  transform-origin: bottom center;
+}
+
+#if ($hover == "elevate")
+.$className .aura-card {
+  transition: all 0.5s;
+  transform-origin: bottom center;
+}
+.$className .aura-card:hover {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.05);
+}
+#end
+
+#if ($hover == "shrink")
+.$className .aura-card {
+  transition: all 0.3s;
+  transform-origin: center center;
+}
+.$className .aura-card:hover {
+  transform: scale(0.95);
+}
+#end
+
+
+#if ($layout == "icon-center")
+.${className}.layout-icon-center .aura-card-header {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.${className}.layout-icon-center .aura-card-body {
+  text-align: center;
+  line-height: 1.4rem;
+}
+#end
+
+#if ($layout == "icon-left")
+.${className}.layout-icon-left .aura-card-header {
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: left;
+}
+
+.${className}.layout-icon-left .aura-card-body {
+  text-align: left;
+  line-height: 1.4rem;
+}
+
+.${className}.layout-icon-left .aura-card-title {
+  margin: 0;
+}
+#end
+
+#if ($layout == "icon-right")
+.${className}.layout-icon-right .aura-card-header {
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  align-items: center;
+  text-align: right;
+}
+
+
+.${className}.layout-icon-right .aura-card-body {
+  text-align: right;
+  line-height: 1.4rem;
+}
+
+.${className}.layout-icon-right .aura-card-title {
+  margin: 0;
+}
+#end
+
+
+#if ($theme == "aura")
+
+.${className}.theme-aura .aura-card svg {
+  height: 2rem;
+  width: 2rem;
+  margin: .5rem 0;
+}
+
+.${className}.theme-aura .aura-card {
+  box-shadow: 0 10px 10px -10px rgba(50, 50, 75, 0.15),
+              0 0 20px rgba(50, 50, 75, 0.05);
+}
+
+.${className}.theme-aura {
+  color: #aaa !important;
+}
+
+.${className}.theme-aura .aura-card-title {
+  color: rgb(9, 30, 66) !important;
+}
+
+#end
+
+#if ($theme == "aura-accent")
+
+.${className}.theme-aura-accent .aura-card svg {
+  height: 1.5rem;
+  width: 1.5rem;
+  margin: .5rem 0;
+}
+
+.${className}.theme-aura-accent .aura-card {
+  box-shadow: 0 10px 10px -10px rgba(50, 50, 75, 0.15),
+              0 0 20px rgba(50, 50, 75, 0.05);
+}
+
+.${className}.theme-aura-accent .aura-card-header .aura-card-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 3rem;
+}
+
+.${className}.theme-aura-accent {
+  color: #aaa !important;
+}
+
+.${className}.theme-aura-accent .aura-card-title {
+  color: rgb(9, 30, 66) !important;
+}
+
+#end
+
+#if ($theme == "fabric")
+
+.${className}.theme-fabric .aura-card svg {
+  height: 2rem;
+  width: 2rem;
+  margin: .5rem 0;
+}
+
+.${className}.theme-fabric .aura-card {
+  box-shadow: 0 10px 10px -10px rgba(50, 50, 75, 0.1),
+              0 0 20px rgba(50, 50, 75, 0.05);
+}
+
+.${className}.theme-fabric .aura-card-body {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.${className}.theme-fabric .aura-card-title {
+  color: #fff !important;
+}
+
+.${className}.theme-fabric .aura-card-header .aura-card-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 3rem;
+}
+#end
+
+</style>
+
+#if(!$preventBodyRender)
+<div class="$className aura-cards-wrapper theme-$theme layout-$layout">
+  #foreach($cardWithHtml in $cards)
+    $cardWithHtml
+  #end
+</div>
+#end

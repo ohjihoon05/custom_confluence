@@ -1,0 +1,11 @@
+{
+  "files": {
+    "main.css": "/static/css/main.css",
+    "main.js": "/static/js/main.js",
+    "index.html": "/index.html",
+    "precache-manifest.b60e3eee4d1c1b81a912a6475bfa1ad0.js": "/precache-manifest.b60e3eee4d1c1b81a912a6475bfa1ad0.js",
+    "service-worker.js": "/service-worker.js",
+    "static/js/main.js.LICENSE": "/static/js/main.js.LICENSE",
+    "static/media/logo.svg": "/static/media/logo.svg"
+  }
+}

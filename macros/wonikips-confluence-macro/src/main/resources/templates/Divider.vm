@@ -1,0 +1,45 @@
+<div class="$className" style="$wrapperStyles">
+<style>
+.$className {
+  display: flex;
+  width: 100%;
+}
+
+.$className .divider-wrapper {
+  display: flex;
+  flex-direction: row !important;
+  width: 100%;
+  min-height: 50px;
+  height: ${height}px;
+  align-items: center;
+}
+
+.$className .divider-side {
+  flex: 1;
+  min-height: 1px;
+}
+
+.$className .divider-content {
+  padding: 1.4em;
+}
+</style>
+
+  <div class="divider-wrapper" style="$dividerStyles" role="seperator">
+    #if($showFirstBorder)
+    <div class="divider-side" style="$borderStyles"></div>
+    #end
+    #if($hasContent)
+    <div class="divider-content">
+      #if($text && !$renderedIconWithHtml)
+      <div style="$textStyles">$text</div>
+      #end
+      #if($renderedIconWithHtml)
+      $renderedIconWithHtml
+      #end
+    </div>
+    #end
+    #if($showSecondBorder)
+    <div class="divider-side" style="$borderStyles"></div>
+    #end
+  </div>
+</div>

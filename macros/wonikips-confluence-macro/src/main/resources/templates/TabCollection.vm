@@ -1,0 +1,145 @@
+<style>
+ .${className}.aura-tab-container {
+     box-sizing: border-box;
+     display: flex;
+     #if($general.getDirection().equals("horizontal"))
+     flex-direction: column; #else flex-direction: row; #end
+ }
+
+ .$className > .aura-tab-nav-wrapper {
+     box-sizing: border-box;
+     #if($general.getDirection().equals("horizontal"))
+     max-width: 100%;
+     overflow-x: auto;
+     #end
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav {
+     box-sizing: border-box;
+     display: flex;
+     justify-content: space-between;
+     padding: 0;
+     margin: 0;
+
+     #if($general.getDirection().equals("horizontal"))
+        width: ${general.getTabWidth()}%;
+        flex-direction: row;
+     #else
+        width: calc(${general.getTabWidth()}px * 4);
+        flex-direction: column;
+        #if($general.isSticky())
+            position: sticky;
+            top: 0px;
+        #end
+     #end
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item {
+     appearance: none;
+     -moz-appearance: none;
+     -webkit-appearance: none;
+     box-sizing: border-box;
+     border: none;
+     display: flex;
+     gap: 0.5rem;
+     align-items: center;
+     padding-left: 1rem;
+     padding-right: 1rem;
+     height: ${general.getTabHeight()}px;
+     overflow: hidden;
+     white-space: nowrap;
+     cursor: pointer;
+     transition: all 0.3s;
+     #if($general.getDirection().equals("horizontal"))
+     width: calc(100% / ${tabs.size()} - ${general.getTabSpacing()}px);
+     min-width: 120px;
+     justify-content: center;
+     #else
+     justify-content: flex-end;
+     #end
+ }
+
+
+ .$className .aura-tab-item *  {
+     overflow: hidden;
+     text-overflow: ellipsis;
+     pointer-events: none;
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=true] svg,
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=true] svg path {
+     $iconStylesActive
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=false] svg,
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=false] svg path {
+     $iconStylesInactive
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=false]:hover svg,
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=false]:hover svg path {
+     $iconStylesHover
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=true] {
+     $activeStyles
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=false] {
+     $inactiveStyles
+     cursor: pointer;
+ }
+
+ .$className > .aura-tab-nav-wrapper > .aura-tab-nav > .aura-tab-item[aria-selected=false]:hover {
+     $hoverStyles
+ }
+
+ .$className > .aura-tab-content {
+     $contentStyles
+     box-sizing: border-box;
+     #if($general.getDirection().equals("vertical"))
+        flex: 1;
+     #end
+     #if($contentHeight)
+        height: ${contentHeight}px;
+        overflow-y: auto;
+     #end
+ }
+
+#if($mode.equals("preview"))
+  .aura-tab-container .aura-tab-content > * {
+    display: none !important;
+  }
+  .aura-tab-container .aura-tab-content > div {
+    display: none !important;
+  }
+  .aura-tab-container .aura-tab-content > div:first-child {
+    display: block !important;
+  }
+#end
+
+ #if($hasShadow)
+ .innerCell .${className}.aura-tab-container, .sectionMacro .${className}.aura-tab-container {
+     margin: 16px 6px;
+ }
+ #end
+</style>
+
+<div id="$className" class="$className aura-tab-container">
+    <div class="aura-tab-nav-wrapper">
+        <div class="aura-tab-nav" role="tablist">
+            #foreach($tab in $tabs)
+                <button role="tab" class="aura-tab-item" aria-selected="${tab.isActive()}" aria-controls="tabpanel-${tab.getId()}" id="tab-${tab.getId()}">
+                    #set($iconWithHtml = $tab.getIcon())
+                    $iconWithHtml
+                    <div class="aura-tab-item-label">
+                        ${tab.getTitle()}
+                    </div>
+                </button>
+            #end
+        </div>
+    </div>
+    <div class="aura-tab-content">
+        ${body}
+    </div>
+</div>

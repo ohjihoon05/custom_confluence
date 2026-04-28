@@ -1,0 +1,43 @@
+#if(!$preventWrapperRender)
+#if($computedLink)
+#if(!$hrefTarget)
+#set($hrefTarget="")
+#end
+<a href="$computedLink" class="aura-card" style="$styles.card" target="$hrefTarget" data-aura-link="$hrefType" data-linked-resource-id="$href">
+#else
+<div class="aura-card" style="$styles.card">
+#end
+#else
+<div class="aura-card-preview-wrapper" style="$styles.card">
+#end
+  #if($image)
+  #set($computedImageStyleWithHtml = "background-image: url($image);")
+  <div class="aura-card-image" style="$computedImageStyleWithHtml" role="img" data-background-image="url($image)">
+    <span role="img" aria-label="background image of card"> </span>
+  </div>
+  #end
+  <div class="aura-card-content-wrapper">
+    <div class="aura-card-header">
+      #if($renderedIcon)
+      <div class="aura-card-icon" style="$styles.icon">
+        #set($renderedIconWithHtml = $renderedIcon)
+        $renderedIconWithHtml
+      </div>
+      <div class="aura-card-header-spacer" role="presentation"></div>
+      #end
+      #set($titleWithHtml = $title)
+      <h3 class="aura-card-title">$titleWithHtml</h3>
+    </div>
+      #set($bodyWithHtml = $body)
+    <div class="aura-card-body-spacer" role="presentation"></div>
+    <p class="aura-card-body">$bodyWithHtml</p>
+  </div>
+#if(!$preventWrapperRender)
+#if($computedLink)
+</a>
+#else
+</div>
+#end
+#else
+</div>
+#end

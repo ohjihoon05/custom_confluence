@@ -1,0 +1,1 @@
+<${htmlTag} style="font-size:${fontSize}px; font-weight:${fontWeight}; text-align:${alignment}; color:${color}; overflow-wrap:break-word;">${title}</${htmlTag}>

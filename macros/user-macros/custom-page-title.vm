@@ -1,0 +1,30 @@
+## Macro: custom-page-title
+## Description: 현재 페이지 제목을 커스텀 스타일로 표시
+## Category: Formatting
+## Macro Body: None
+##
+## @param Style|title=스타일|type=enum|enumValues=default,large,badge|default=default
+## @param ShowLink|title=링크로 표시|type=boolean|default=true
+## @param Color|title=색상|type=string|default=#172B4D
+
+#set($title = $page.title)
+#set($pageUrl = $content.urlPath)
+
+#if($paramStyle == "large")
+  #set($fontSize = "2em")
+  #set($fontWeight = "700")
+#elseif($paramStyle == "badge")
+  #set($fontSize = "0.85em")
+  #set($fontWeight = "600")
+#else
+  #set($fontSize = "1.2em")
+  #set($fontWeight = "600")
+#end
+
+<span style="font-size:${fontSize}; font-weight:${fontWeight}; color:${paramColor}; line-height:1.3;">
+  #if($paramShowLink == "true")
+    <a href="$pageUrl" style="color:${paramColor}; text-decoration:none;">$title</a>
+  #else
+    $title
+  #end
+</span>

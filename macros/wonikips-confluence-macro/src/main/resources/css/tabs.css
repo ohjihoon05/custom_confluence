@@ -1,0 +1,26 @@
+/* Styles for tabs */
+
+/* .aura-tab-container .aura-tab-content > * {
+  display: none !important;
+} */
+.aura-tab-container .aura-tab-content > div[data-aura-tab-active="false"] {
+  display: none !important;
+}
+.aura-tab-container .aura-tab-content > div[data-aura-tab-active="true"] {
+  display: block !important;
+}
+
+.aura-tab-container .aura-tab-content::-webkit-scrollbar-button {
+  display: none;
+}
+.aura-tab-container .aura-tab-content::-webkit-scrollbar {
+  display: none;
+}
+
+.aura-tab-container .aura-tab-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aura-tab-container .aura-tab-content::-webkit-scrollbar-thumb {
+  display: none;
+}

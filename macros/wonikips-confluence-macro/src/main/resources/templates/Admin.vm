@@ -1,0 +1,12 @@
+<html>
+<head>
+    <title>Aura Configuration</title>
+    <meta name="decorator" content="atl.admin">
+</head>
+<body>
+    <div data-aura-page="admin-page">
+      <h1>License Expired</h1>
+      <p>It looks like your license has expired. Please renew your license to be able to use Aura again.</p>
+    </div>
+</body>
+</html>

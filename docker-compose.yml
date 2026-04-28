@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:14
+    container_name: confluence-postgres
+    environment:
+      POSTGRES_DB: confluencedb
+      POSTGRES_USER: confluenceuser
+      POSTGRES_PASSWORD: confluencepass
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - confluence-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U confluenceuser -d confluencedb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  confluence:
+    image: atlassian/confluence:7.19.8
+    container_name: confluence-dc
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JVM_MINIMUM_MEMORY: 1024m
+      JVM_MAXIMUM_MEMORY: 2048m
+      JVM_SUPPORT_RECOMMENDED_ARGS: "-Dconfluence.editor.allow.fabric=false"
+    ports:
+      - "8090:8090"
+      - "8091:8091"
+    volumes:
+      - confluence-data:/var/atlassian/application-data/confluence
+      - confluence-shared:/var/atlassian/application-data/confluence/shared
+    networks:
+      - confluence-net
+
+volumes:
+  postgres-data:
+  confluence-data:
+  confluence-shared:
+
+networks:
+  confluence-net:
+    driver: bridge

@@ -1,0 +1,110 @@
+#if (!$label && !$color && !$size && !$outlined && !$background)
+#set($label = "Please configure")
+#set($color = "#ffffff")
+#set($background = "#000000")
+#set($size = "medium")
+#set($outlined = "regular")
+#end
+
+#if ($size == "large")
+#set($computedSize = 1.7)
+#elseif ($size == "medium")
+#set($computedSize = 1.35)
+#else
+#set($computedSize = 1)
+#end
+
+
+#if ($outlined == "outlined")
+#set($computedForeground = $background)
+#set($computedBackground = "transparent")
+#set($computedBorder = $background)
+#else
+#set($computedForeground = $color)
+#set($computedBackground = $background)
+#set($computedBorder = $background)
+#end
+
+#if ($label)
+#set($labelLength = $label.length())
+#else
+#set($labelLength = 12)
+#end
+
+#set($computedWidth = $computedSize * $labelLength * 4.5 + 45)
+
+#set($computedHeight = $computedSize * 36.8 + 4)
+
+#if($renderedIconWithHtml)
+#set($computedWidth = $computedWidth + 20)
+#end
+
+#set($computedWidthInner = $computedWidth - 4)
+#set($computedHeightInner = $computedHeight - 4)
+
+#if ($computedWidth < $computedHeight || $label.equals(""))
+#set($computedWidth =  $computedHeight)
+#set($computedWidthInner =  $computedHeightInner)
+#end
+
+#set($fontSize = 10 * $computedSize)
+#set($labelPositionY = ($computedHeight / 2) + ($fontSize / 4) + 1)
+
+
+#if(!$size)
+#set($computedForeground = "#333")
+#set($computedBackground = "#ddd")
+#set($computedBorder = "#ddd")
+#end
+
+
+#set($Integer = 0)
+#if($borderRadius && $Integer.parseInt($borderRadius) > ($computedHeight / 2))
+#set($borderRadius = $computedHeight / 2)
+#end
+
+
+<svg width="$computedWidth" height="$computedHeight" version="1.1"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+    <rect id="base" x="2" y="2" stroke="$computedBorder" stroke-width="2" width="$computedWidthInner" height="$computedHeightInner" fill="$computedBackground" rx="$borderRadius"></rect>
+    <text class="label" font-family="sans-serif" x="50%" y="$labelPositionY" font-size="$fontSize" fill="$computedForeground">
+        #if ($label)
+        <tspan text-anchor="middle">$label</tspan>
+        #end
+    </text>
+    #if ($renderedIconWithHtml)
+    <style>
+        #if (!$label.equals(""))
+            #if ($iconPosition ==  "right")
+               .label {
+                    transform: translateX(-6px);
+               }
+               .icon {
+                    transform: translate(calc(${computedWidth}px - 24px), calc(50% - 6px))
+               }
+            #else
+               .label {
+                    transform: translateX(6px)
+               }
+               .icon {
+                    transform: translate(12px, calc(50% - 6px))
+               }
+           #end
+        #else
+           .icon {
+                transform: translate(calc(50% - 6px), calc(50% - 6px));
+                transform-origin: center;
+           }
+        #end
+        #if ($outlined == "outlined")
+          .icon path {
+            fill: $background;
+          }
+        #end
+    </style>
+    <g class="icon">
+        $renderedIconWithHtml
+    </g>
+    #end
+</svg>

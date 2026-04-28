@@ -1,0 +1,74 @@
+<div>
+  <style>
+    .innerCell .$className, .sectionMacro .$className {
+      margin: 16px 6px;
+    }
+
+    .$className {
+      box-sizing: border-box;
+      overflow: hidden;
+      margin-top: 16px;
+      margin-bottom: 16px;
+    }
+
+    .$className .aura-header {
+      padding: 20px 20px 0px 20px;
+      display: flex;
+      align-items: center;
+      box-sizing: border-box;
+    } 
+
+    .$className a.aura-header {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .$className a.aura-header:hover {
+      text-decoration: underline;
+      color: $linkColor;
+    }
+
+    .$className .aura-headline {
+      display: flex;
+      padding-bottom: 20px;
+      flex: 1;
+      align-items: center;
+    }
+
+    .$className .aura-headline svg {
+      #if($headline)
+      margin-right: 0.5em;
+      #end
+    }
+
+    .$className .aura-body {
+      padding: 20px;
+      box-sizing: border-box;
+      display: block;
+    }
+  </style>
+
+  #if($href)
+  #set($headerTag = "a")
+  #else
+  #set($headerTag = "div")
+  #end
+
+  <div class="$className" style="$baseStyle">
+    #if($headline || $renderedIconWithHtml)
+    <$headerTag class="aura-header" style="$headerStyle" href="$href" target="$hrefTarget">
+      <$tag role="heading" aria-level="2" id="$className" class="aura-headline" style="$headlineStyle">
+        #if($renderedIconWithHtml)
+        ${renderedIconWithHtml}
+        #end
+        #if($headline)
+        <span>${headline}</span>
+        #end
+      </$tag>
+    </$headerTag>
+    #end
+    <div class="aura-body" style="$bodyStyle">
+      $body
+    </div>
+  </div>
+</div>

@@ -1,0 +1,14 @@
+<svg width="1920" height="10" version="1.1"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+    #if($style.equals("solid"))
+    <line x1="0" y1="5" x2="100%" y2="5" stroke="$color" stroke-width="2"/>
+    #elseif($style.equals("dashed") || $style.equals("dotted"))
+    <line stroke-dasharray="10,10" x1="0" y1="5" x2="100%" y2="5" stroke="$color" stroke-width="2" />
+    #elseif($style.equals("double"))
+    #set($yUpper = $width / 4)
+    #set($yLower = $width * (3/4))
+    <line x1="0" y1="4" x2="100%" y2="4" stroke="$color" stroke-width="1"/>
+    <line x1="0" y1="6" x2="100%" y2="6" stroke="$color" stroke-width="1" />
+    #end
+</svg>
