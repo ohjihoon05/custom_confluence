@@ -1,5 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import { CardsEditor } from './editors/CardsEditor/CardsEditor';
+import iconDataRaw from '../../templates/icondata.json';
+import type { IconMeta } from './components';
+
+const iconData = iconDataRaw as Record<string, IconMeta>;
 
 declare global {
   interface Window {
@@ -24,6 +28,7 @@ window.__wonikipsEditor = {
     root.render(
       <CardsEditor
         initial={(options.initial as Parameters<typeof CardsEditor>[0]['initial']) ?? undefined}
+        iconData={iconData}
         onSave={(params) => options.onSave?.(params)}
         onCancel={() => options.onCancel?.()}
       />
@@ -41,6 +46,7 @@ if (isDemoMode) {
   const root = createRoot(isDemoMode);
   root.render(
     <CardsEditor
+      iconData={iconData}
       onSave={(params) => {
         console.log('Demo save:', params);
         alert('Demo save — see console for params');
@@ -48,5 +54,7 @@ if (isDemoMode) {
       onCancel={() => console.log('Demo cancel')}
     />
   );
-  console.log('[WonikIPS Editor] Demo mode mounted on #wonikips-editor-demo-root');
+  console.log('[WonikIPS Editor] Demo mode mounted on #wonikips-editor-demo-root', {
+    iconCount: Object.keys(iconData).length,
+  });
 }
