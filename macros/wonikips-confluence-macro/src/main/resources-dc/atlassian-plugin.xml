@@ -16,6 +16,7 @@
 
     <resource type="i18n" name="i18n" location="uiux-macro"/>
     <resource type="download" name="images/" location="/images"/>
+    <resource type="download" name="templates/" location="/templates"/>
 
     <web-resource key="aura-resources" name="WonikIPS View CSS">
         <dependency>com.atlassian.auiplugin:ajs</dependency>

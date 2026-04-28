@@ -12,6 +12,7 @@ const DIALOG_ID = 'wonikips-cards-editor-overlay';
 
 interface V4AdapterOptions {
   iconData: Record<string, IconMeta>;
+  iconLoader?: () => Promise<Record<string, IconMeta>>;
 }
 
 function getConfluenceWindow(): ConfluenceWindow | null {
@@ -144,33 +145,64 @@ function openCardsDialog(
 
 let registered = false;
 
-function tryRegister(iconData: Record<string, IconMeta>): boolean {
+function tryRegister(getIcons: () => Record<string, IconMeta>): boolean {
   const cw = getConfluenceWindow();
   if (!cw?.AJS?.MacroBrowser?.setMacroJsOverride) return false;
   cw.AJS.MacroBrowser.setMacroJsOverride(MACRO_NAME, {
-    opener: (macro) => openCardsDialog(macro, iconData),
+    opener: (macro) => openCardsDialog(macro, getIcons()),
   });
   registered = true;
   console.log('[WonikIPS Editor] Registered V4 override for', MACRO_NAME);
   return true;
 }
 
-export function createV4Host({ iconData }: V4AdapterOptions): MacroEditorHost {
+export function createV4Host({
+  iconData,
+  iconLoader,
+}: V4AdapterOptions): MacroEditorHost {
+  let cachedIcons = iconData;
+  let loadingPromise: Promise<Record<string, IconMeta>> | null = null;
+
+  const getIcons = (): Record<string, IconMeta> => {
+    if (Object.keys(cachedIcons).length > 0) return cachedIcons;
+    if (iconLoader && !loadingPromise) {
+      loadingPromise = iconLoader()
+        .then((data) => {
+          cachedIcons = data;
+          console.log('[WonikIPS Editor] iconData loaded', Object.keys(data).length);
+          return data;
+        })
+        .catch((err) => {
+          console.error('[WonikIPS Editor] iconData load failed:', err);
+          return {};
+        });
+    }
+    return cachedIcons;
+  };
+
   return {
     registerCardsMacro: (): void => {
       if (registered) return;
       const cw = getConfluenceWindow();
       if (!cw) return;
 
-      if (tryRegister(iconData)) return;
+      if (iconLoader && Object.keys(cachedIcons).length === 0) {
+        getIcons();
+      }
+
+      if (tryRegister(getIcons)) return;
 
       const onReady = (): void => {
-        if (!registered) tryRegister(iconData);
+        if (!registered) tryRegister(getIcons);
       };
 
-      cw.AJS?.bind?.('init.rte', onReady);
-      cw.AJS?.bind?.('page-edit-loaded', onReady);
-      cw.AJS?.toInit?.(onReady);
+      try {
+        cw.AJS?.bind?.('init.rte', onReady);
+        cw.AJS?.bind?.('page-edit-loaded', onReady);
+        cw.AJS?.toInit?.(onReady);
+      } catch (err) {
+        console.warn('[WonikIPS Editor] AJS bind failed:', err);
+      }
 
       let attempts = 0;
       const interval = window.setInterval(() => {
@@ -184,7 +216,7 @@ export function createV4Host({ iconData }: V4AdapterOptions): MacroEditorHost {
           }
           return;
         }
-        tryRegister(iconData);
+        tryRegister(getIcons);
       }, 500);
     },
   };

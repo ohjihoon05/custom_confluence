@@ -14,6 +14,7 @@
 
     <resource type="i18n" name="i18n" location="uiux-macro"/>
     <resource type="download" name="images/" location="/images"/>
+    <resource type="download" name="templates/" location="/templates"/>
 
     <!-- CSS + webfonts (always loaded) -->
     <web-resource key="aura-resources" name="WonikIPS View CSS">
