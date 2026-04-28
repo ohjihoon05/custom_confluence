@@ -1,0 +1,65 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.label {
+  font-size: 12px;
+  color: #6B778C;
+  font-weight: 500;
+}
+
+.select,
+.hexInput {
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 12px;
+  border: 1px solid #DFE1E6;
+  border-radius: 4px;
+  outline: none;
+  background: #FFFFFF;
+  color: #172B4D;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.select:focus,
+.hexInput:focus {
+  border-color: #4C9AFF;
+  box-shadow: 0 0 0 2px rgba(76, 154, 255, 0.2);
+}
+
+.hexInputInvalid {
+  border-color: #DE350B;
+}
+
+.swatchRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.swatch:hover {
+  transform: scale(1.05);
+}
+
+.swatchSelected {
+  border-color: #0052CC;
+}
+
+.swatch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
