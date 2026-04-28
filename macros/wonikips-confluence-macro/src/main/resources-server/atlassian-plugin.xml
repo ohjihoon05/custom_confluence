@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<atlassian-plugin key="com.uiux.confluence-macro" name="WonikIPS Confluence Macro" plugins-version="2">
+
+    <plugin-info>
+        <description>Confluence macro plugin for WonikIPS internal use.</description>
+        <version>${project.version}</version>
+        <vendor name="WonikIPS" url="http://www.wonikips.com/"/>
+        <param name="plugin-icon">images/app-icon.png</param>
+        <param name="plugin-logo">images/app-logo.png</param>
+        <param name="plugin-banner">images/app-banner.png</param>
+        <param name="atlassian-licensing-enabled">false</param>
+        <param name="configure.url">/plugins/servlet/aura/admin</param>
+    </plugin-info>
+
+    <resource type="i18n" name="i18n" location="uiux-macro"/>
+    <resource type="download" name="images/" location="/images"/>
+
+    <!-- CSS + webfonts (always loaded) -->
+    <web-resource key="aura-resources" name="WonikIPS View CSS">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <resource type="download" name="main.css" location="/client/static/css/main.css"/>
+        <resource type="download" name="webfonts.css" location="/webfonts/webfonts.css"/>
+        <resource type="download" name="fa-solid-900.woff" location="/webfonts/fa-solid-900.woff">
+            <param name="allow-public-use" value="true"/>
+        </resource>
+        <context>atl.general</context>
+    </web-resource>
+
+    <!-- React editor UI — license condition removed so it always loads -->
+    <web-resource key="aura-resources-with-license" name="WonikIPS Editor Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <resource type="download" name="main.js" location="/client/static/js/main.js"/>
+        <context>atl.general</context>
+    </web-resource>
+
+    <!-- WonikIPS 자체 React 편집 UI (PoC) -->
+    <web-resource key="wonikips-editor-resources" name="WonikIPS Editor (React)">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <resource type="download" name="wonikips-editor.js" location="/client-custom-built/wonikips-editor.js"/>
+        <context>atl.general</context>
+    </web-resource>
+
+    <!-- Admin page resources -->
+    <web-resource key="aura-admin-resources" name="WonikIPS Admin Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <resource type="download" name="main.css" location="/client/static/css/main.css"/>
+        <resource type="download" name="main.js" location="/client/static/js/main.js"/>
+        <resource type="download" name="images/" location="/images"/>
+        <context>atl.admin</context>
+    </web-resource>
+
+    <!-- Tab JS/CSS -->
+    <web-resource key="aura-tabs-resources" name="WonikIPS Tabs Resources">
+        <dependency>com.atlassian.auiplugin:ajs</dependency>
+        <resource type="download" name="tabs.js" location="/js/tabs.js"/>
+        <resource type="download" name="tabs.css" location="/css/tabs.css"/>
+        <context>atl.general</context>
+    </web-resource>
+
+    <!-- Macros — Aura-compatible name + key (main.js expects aura-*) -->
+    <xhtml-macro name="aura-button" class="com.uiux.macro.macros.Button" key="aura-button"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-button.png">
+        <category name="formatting"/>
+        <device-type>mobile</device-type>
+        <parameters/>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-panel" class="com.uiux.macro.macros.Panel" key="aura-panel"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-panel.png">
+        <category name="formatting"/>
+        <device-type>mobile</device-type>
+        <parameters/>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-cards" class="com.uiux.macro.macros.cards.Cards" key="aura-cards"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-cards.png">
+        <category name="formatting"/>
+        <device-type>mobile</device-type>
+        <parameters/>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-tab" class="com.uiux.macro.macros.Tab" key="aura-tab"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-tab.png">
+        <category name="formatting"/>
+        <parameters>
+            <parameter type="string" name="title"/>
+        </parameters>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-tab-collection" class="com.uiux.macro.macros.TabCollection" key="aura-tab-collection"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-tab-collection.png">
+        <category name="formatting"/>
+        <parameters/>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-background-image" class="com.uiux.macro.macros.BackgroundImage" key="aura-background-image"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-background-image.png">
+        <category name="formatting"/>
+        <device-type>mobile</device-type>
+        <parameters/>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-pretty-title" class="com.uiux.macro.macros.PrettyTitle" key="aura-pretty-title"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-title.png">
+        <category name="formatting"/>
+        <device-type>mobile</device-type>
+        <parameters/>
+    </xhtml-macro>
+
+    <xhtml-macro name="aura-divider" class="com.uiux.macro.macros.Divider" key="aura-divider"
+                 icon="/download/resources/com.uiux.confluence-macro/images/aura-divider.png">
+        <category name="formatting"/>
+        <device-type>mobile</device-type>
+        <parameters/>
+    </xhtml-macro>
+
+    <!-- Servlets — Aura URL paths (main.js calls /aura/*) -->
+    <servlet name="Macro Preview Renderer" key="macro-preview-renderer"
+             class="com.uiux.macro.servlets.MacroPreviewRenderer">
+        <url-pattern>/aura/macro-preview</url-pattern>
+    </servlet>
+
+    <servlet name="Admin Config" key="admin-config"
+             class="com.uiux.macro.servlets.AdminConfig">
+        <url-pattern>/aura/config</url-pattern>
+    </servlet>
+
+    <servlet name="Admin UI" key="admin-servlet"
+             class="com.uiux.macro.servlets.AdminUI">
+        <url-pattern>/aura/admin</url-pattern>
+    </servlet>
+
+    <servlet name="Icon Renderer" key="icon-renderer"
+             class="com.uiux.macro.servlets.IconRenderer">
+        <url-pattern>/aura/icons</url-pattern>
+    </servlet>
+
+    <!-- Admin menu -->
+    <web-section name="WonikIPS Configuration Section" key="aura-admin-section"
+                 location="system.admin" weight="290">
+        <label>WonikIPS Macro</label>
+    </web-section>
+
+    <web-item key="aura-admin-link" name="Configure WonikIPS Macro"
+              section="system.admin/aura-admin-section" weight="20">
+        <label>WonikIPS Configuration</label>
+        <link linkId="aura-admin-link">/plugins/servlet/aura/admin</link>
+    </web-item>
+
+</atlassian-plugin>
