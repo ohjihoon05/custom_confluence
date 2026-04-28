@@ -1,0 +1,51 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.label {
+  font-size: 13px;
+  color: #172B4D;
+  flex: 1;
+}
+
+.button {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #DFE1E6;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s;
+}
+
+.button::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  transition: transform 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.buttonOn {
+  background: #0052CC;
+}
+
+.buttonOn::after {
+  transform: translateX(16px);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
