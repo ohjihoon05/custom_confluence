@@ -15,7 +15,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    target: 'es2015',
+    // ES2019: object spread / rest 등을 native 지원하는 브라우저만 타겟.
+    // es2015로 낮추면 esbuild이 var $=(a,b)=>... helper를 IIFE 바깥으로 호이스트해
+    // 전역 $를 덮어쓰고 jQuery $가 깨짐 (1.0.25 회귀, edit page 전체 dead).
+    target: 'es2019',
     minify: 'esbuild',
     lib: {
       entry: 'src/main.tsx',

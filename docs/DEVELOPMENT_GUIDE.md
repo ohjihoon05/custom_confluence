@@ -6,15 +6,17 @@
 
 ## 0. 한 줄 요약
 
-**Confluence DC plugin** + **Vite/React 18 IIFE 번들** + **Aura `setMacroJsOverride` monkey-patch** = V4 매크로 브라우저에서 자체 편집 UI 동작.
+**Confluence DC plugin** + **Vite/React 18 IIFE 번들** + **Aura `setMacroJsOverride` monkey-patch + macro registry** = V4 매크로 브라우저에서 자체 편집 UI 동작 + 새 매크로 5개 파일 추가만으로 확장.
 
 ---
 
 ## 1. 무엇을 만들었나
 
 - **대상**: Confluence DC 7.19.8 (V4/Fabric 에디터)
-- **목적**: Aura 플러그인의 Cards 매크로 편집 패널을 WonikIPS 자체 React UI로 대체
-- **결과**: Cards 매크로 클릭 시 풀스크린 React 모달이 뜨고, 삽입 클릭 시 본문에 매크로 placeholder 삽입 → 페이지 저장 시 정상 렌더링
+- **목적**: Aura 플러그인의 매크로 편집 패널을 WonikIPS 자체 React UI로 대체
+- **현재 자체 패널화된 매크로**: Cards (1.0.23), Button (1.0.26)
+- **결과**: 매크로 클릭 → 풀스크린 React 모달 → 삽입 → 페이지 저장 시 Aura 백엔드 그대로 사용해 렌더링 (storage XML / Java macro 무수정)
+- **인프라 (1.0.24)**: registry 패턴으로 새 매크로 추가는 5개 파일만 — host/v4-adapter, main.tsx 무수정. 다른 매크로(Panel/Tab/Title/...)는 같은 패턴으로 점진 전환.
 
 다른 매크로(Button, Panel, Tab 등)는 여전히 Aura 그대로 — 점진 전환 가능.
 
@@ -238,7 +240,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    target: 'es2015',
+    target: 'es2019',  // ★ 필수 — es2015 두면 esbuild helper(var $=...)가 전역에 누수
     minify: 'esbuild',
     lib: {
       entry: 'src/main.tsx',
@@ -248,9 +250,15 @@ export default defineConfig({
     },
     rollupOptions: {
       external: ['jquery', 'AJS'],  // Confluence가 이미 제공
+      // src/macros/* 는 side-effect import (registerMacro 호출). tree-shaking 보호.
+      treeshake: {
+        moduleSideEffects: (id) => /[\\/]src[\\/]macros[\\/]/.test(id),
+      },
       output: {
         globals: { jquery: 'jQuery', AJS: 'AJS' },
         assetFileNames: (asset) => asset.name === 'style.css' ? 'wonikips-editor.css' : '[name][extname]',
+        // 런타임 process 폴리필 (Vite define으로 못 잡은 dynamic 참조 방어)
+        banner: 'if(typeof process==="undefined"){window.process={env:{NODE_ENV:"production"}};}',
       },
     },
     cssCodeSplit: false,
@@ -260,7 +268,11 @@ export default defineConfig({
 
 **`define: { 'process.env.NODE_ENV': JSON.stringify('production') }`이 없으면** React 18 번들이 `process.env.NODE_ENV`를 dynamic 참조 → 브라우저에서 `ReferenceError: process is not defined` → batch.js 통째로 깨짐 → 페이지 비활성화.
 
-치환 후 번들 사이즈 547KB → 215KB (production 모드, dev 코드 제거됨).
+**`target: 'es2019'`가 없으면** (1.0.25 회귀): esbuild이 object spread를 ES2015 호환으로 lower하면서 `var $=(a,b)=>defineProperties(a,getOwnPropertyDescriptors(b))` helper를 IIFE 바깥에 hoist → `window.$`(jQuery)를 덮어씀 → `$.extend is not a function` + `Cannot convert undefined or null to object` 연쇄로 Confluence batch.js init이 줄줄이 실패 → 편집 페이지 dead. 1.0.26에서 ADR-018로 수정.
+
+**`treeshake.moduleSideEffects`가 없으면**: `src/macros/{name}.ts`의 `registerMacro()` 호출이 unused로 판단되어 tree-shake 제거 → 매크로가 registry에 등록되지 않아 편집 패널 안 뜸 (Aura 패널이 그대로 표시됨).
+
+치환 후 번들 사이즈 547KB → 222KB (production 모드, dev 코드 제거 + Cards + Button + registry 인프라).
 
 ### 5.3 `atlassian-plugin.xml`의 결정적 web-resource 등록
 
@@ -428,9 +440,10 @@ atlas-package -P server -Dmaven.test.skip=true
 # 3. Ctrl+Shift+R (캐시 강제 갱신)
 # 4. F12 → Console → 다음 로그 확인:
 #    [WonikIPS Editor] bundle loaded
-#    [WonikIPS Editor] Hello WonikIPS {version: '0.4.0-safe-boot'}
+#    [WonikIPS Editor] Hello WonikIPS {version: '0.5.0-registry'}
 #    [WonikIPS Editor] Scheduling V4 host registration
-#    [WonikIPS Editor] Monkey-patched setMacroJsOverride for aura-cards
+#    [WonikIPS Editor] Monkey-patched setMacroJsOverride (via registry): aura-cards, aura-button
+#    [WonikIPS Editor] Registered V4 override for aura-cards, aura-button
 #    [WonikIPS Editor] iconData loaded 1458
 ```
 
@@ -440,22 +453,22 @@ atlas-package -P server -Dmaven.test.skip=true
 
 ---
 
-## 10. 새 매크로 추가하는 절차
+## 10. 새 매크로 추가하는 절차 (1.0.24 registry 패턴 이후)
 
-Cards 외 매크로(예: Button)를 자체 React 패널로 만들 때:
+새 매크로를 자체 React 패널로 만들 때 — **5개 파일 + barrel 한 줄**만 추가, host/v4-adapter / main.tsx / Java 무수정. (Button 1.0.26이 이 절차로 추가된 실증)
 
-1. **Aura 캡처**: `aura_image/button/` 폴더에 편집 패널 스크린샷 (Aura 라이선스 활성 후)
-2. **Schema 정의**: `src/schema/button.ts` (CardsSchema 패턴 참고)
-3. **mapper**: `src/schema/button-mapper.ts` (UI ↔ Java 변환)
-4. **컴포넌트**: `src/editors/ButtonEditor/ButtonEditor.tsx` (CardsEditor 패턴 참고)
-5. **Dialog shell**: `v4-adapter.ts`에 `ButtonDialogShell` 추가 (CardsDialogShell 패턴)
-6. **Monkey-patch 확장**: `installMonkeyPatch`의 `if (name === ...)` 분기에 `'aura-button'` 추가:
-   ```ts
-   if (name === 'aura-cards') return original(name, { opener: openCardsDialog });
-   if (name === 'aura-button') return original(name, { opener: openButtonDialog });
-   return original(name, override);
-   ```
-7. **빌드 + 검증**
+1. **Aura 캡처**: `aura_image/{name}/` 폴더에 편집 패널 스크린샷 (Aura 라이선스 활성 후)
+2. **Schema 정의**: `src/schema/{name}.ts` (Cards/Button 패턴 참고). Aura `{Name}.java` + `{Name}.vm` 시그니처 분석해서 정확히 정의.
+3. **Mapper**: `src/schema/{name}-mapper.ts` (UI ↔ Aura Java Map 양방향 변환)
+4. **편집 컴포넌트**: `src/editors/{Name}Editor/{Name}Editor.tsx` (+ `.module.css`)
+   - controlled mode 지원 (`value` / `onChange` / `hideFooter` props)
+5. **매크로 모듈**: `src/macros/{name}.ts` — Dialog shell + opener + 파일 끝에 `registerMacro('aura-{name}', { opener: open{Name}Dialog })`
+6. **Barrel**: `src/macros/index.ts`에 `import './{name}';` 한 줄 추가
+7. **빌드 + 검증**: `atlas-package` → 콘솔 로그에 등록된 매크로 이름이 나오는지 확인
+
+`host/v4-adapter.ts`는 registry에서 자동으로 매크로를 가져오므로 **수정 안 함**. `main.tsx`도 barrel `import './macros'`이 모든 매크로를 eager 로드하므로 **수정 안 함**.
+
+**병렬 작업** (여러 매크로 동시 진행): `docs/PARALLEL_DEV_GUIDE.md` 참조 — git worktree로 매크로별로 분기.
 
 대부분 코드는 패턴 복사. Schema는 `aura.properties` + `Button.vm` + `Button.java` 시그니처를 보고 정확히 정의.
 
@@ -469,7 +482,9 @@ Cards 외 매크로(예: Button)를 자체 React 패널로 만들 때:
 |------|------|------|
 | 매크로 패널이 안 뜸 | CSS web-resource 누락 → invisible | `atlassian-plugin.xml`의 wonikips-editor-resources에 CSS 추가 |
 | Aura 패널이 그대로 뜸 | monkey-patch 미적용 | `installMonkeyPatch` 호출 확인, 콘솔 `Monkey-patched...` 로그 |
-| 모든 페이지 비활성화 | batch.js 깨짐 (process is not defined 등) | `vite.config.ts`의 `define`으로 정적 치환 |
+| Aura 패널이 그대로 뜸 (특정 매크로만) | `src/macros/index.ts`에 `import './{name}';` 누락 또는 tree-shake로 제거 | barrel 확인 + `vite.config.ts` `treeshake.moduleSideEffects` 확인 |
+| 모든 페이지 비활성화 (`process is not defined`) | React 번들 dynamic process 참조 | `vite.config.ts`의 `define`으로 정적 치환 |
+| 모든 페이지 비활성화 (`$.extend is not a function`, `Cannot convert undefined or null to object`) | esbuild helper(`var $=...`)가 IIFE 바깥에 hoist되어 jQuery `$` 덮어씀 | `vite.config.ts`의 `target: 'es2019'` 설정 (ADR-018, 1.0.26) |
 | 빌드 실패 (Closure Compiler 에러) | 우리 번들의 ES2019+ 문법 | `pom.xml`의 `<compressResources>false</compressResources>` |
 | 콘솔에 우리 로그 0개 | 옛 plugin key(`com.ohjih.*` 등) 잔재로 batch 깨짐 | 옛 plugin 모두 제거 후 재시작 |
 | `wonikips-editor.js` 404 | URL 형식 오해 | `/download/resources/{plugin-key}/{web-resource-key}/{name}` |
@@ -482,9 +497,20 @@ Cards 외 매크로(예: Button)를 자체 React 패널로 만들 때:
 window.__wonikipsEditor                                  // 객체 출력 → 번들 로드됨
 typeof AJS.MacroBrowser.setMacroJsOverride               // "function" → API 살아있음
 AJS.MacroBrowser.setMacroJsOverride.__wonikipsPatched    // true → monkey-patch 적용됨
+typeof window.$                                           // "function" → jQuery 정상 (esbuild helper 안 새어나감)
+$.extend.toString()                                       // jQuery extend 함수 출력 → 정상
 ```
 
-### 11.3 회귀 추적 (실제 1.0.16~1.0.23)
+번들 자체 검증 (build 직후):
+```bash
+# 1. 시작 부분에 helper 변수 누수 없는지 (정상: typeof process 또는 (function 으로 시작)
+head -c 80 dist/wonikips-editor.js
+
+# 2. 시작이 'var ' 로 시작하면 esbuild helper 누수 — target 확인
+head -c 4 dist/wonikips-editor.js | grep -c "^var "    # 0 이어야 정상
+```
+
+### 11.3 회귀 추적 (실제 1.0.16~1.0.26)
 
 | 버전 | 증상 | 수정 |
 |------|------|------|
@@ -495,6 +521,9 @@ AJS.MacroBrowser.setMacroJsOverride.__wonikipsPatched    // true → monkey-patc
 | 1.0.21 | 패널 자체 안 뜸 | (다음으로) |
 | 1.0.22 | 패널 떴지만 invisible | CSS web-resource 등록 |
 | 1.0.23 | "삽입" 버튼 안 보임 | Dialog level state lifting + footer |
+| 1.0.24 | (인프라) 매크로 추가 시 host/v4-adapter 매번 수정 필요 | registry 패턴 + `src/macros/` 디렉토리 + barrel import (ADR-017) |
+| 1.0.25 | 편집 페이지 dead, `$.extend is not a function`, `Cannot convert undefined or null to object` 연쇄 | esbuild이 ES2015 lower 중 `var $=...` helper를 전역에 hoist해 jQuery `$` 덮어씀 (Button 추가로 spread 사용량 늘면서 helper 이름이 `$`로 배정) |
+| 1.0.26 | (1.0.25 fix) | `vite.config.ts` `target: 'es2015'` → `'es2019'` (ADR-018). Cards + Button 둘 다 정상 |
 
 ---
 
