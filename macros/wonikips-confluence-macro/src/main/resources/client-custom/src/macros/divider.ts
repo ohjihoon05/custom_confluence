@@ -1,37 +1,37 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement, useState } from 'react';
-import { ButtonEditor } from '../editors/ButtonEditor/ButtonEditor';
-import { javaMapToParams, paramsToJavaMap } from '../schema/button-mapper';
-import { ButtonParamsSchema, type ButtonParams } from '../schema/button';
+import { DividerEditor } from '../editors/DividerEditor/DividerEditor';
+import { javaMapToParams, paramsToJavaMap } from '../schema/divider-mapper';
+import { DividerParamsSchema, type DividerParams } from '../schema/divider';
 import type { IconMeta } from '../components';
 import type { ConfluenceWindow, MacroBrowserMacro } from '../host/types';
 import { registerMacro, getGlobalIconData } from '../host/macro-registry';
 import dialogStyles from '../host/dialog.module.css';
 
-const MACRO_NAME = 'aura-button';
-const DIALOG_ID = 'wonikips-button-editor-overlay';
+const MACRO_NAME = 'aura-divider';
+const DIALOG_ID = 'wonikips-divider-editor-overlay';
 
-interface ButtonDialogShellProps {
-  initial: ButtonParams;
+interface DividerDialogShellProps {
+  initial: DividerParams;
   iconData: Record<string, IconMeta>;
-  onInsert: (params: ButtonParams) => void;
+  onInsert: (params: DividerParams) => void;
   onCancel: () => void;
 }
 
-function ButtonDialogShell({
+function DividerDialogShell({
   initial,
   iconData,
   onInsert,
   onCancel,
-}: ButtonDialogShellProps) {
-  const [params, setParams] = useState<ButtonParams>(initial);
+}: DividerDialogShellProps) {
+  const [params, setParams] = useState<DividerParams>(initial);
   return createElement(
     'div',
     { className: dialogStyles.dialog },
     createElement(
       'div',
       { className: dialogStyles.header },
-      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Button'),
+      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Divider'),
       createElement(
         'button',
         {
@@ -46,7 +46,7 @@ function ButtonDialogShell({
     createElement(
       'div',
       { className: dialogStyles.body },
-      createElement(ButtonEditor, {
+      createElement(DividerEditor, {
         value: params,
         onChange: setParams,
         iconData,
@@ -100,7 +100,7 @@ function destroyOverlay(root: Root | null, overlay: HTMLElement): void {
   }
 }
 
-export function openButtonDialog(macro: MacroBrowserMacro): void {
+export function openDividerDialog(macro: MacroBrowserMacro): void {
   const cw = getConfluenceWindow();
   if (!cw) return;
 
@@ -108,24 +108,24 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   const overlay = ensureOverlay();
   overlay.className = dialogStyles.overlay ?? '';
 
-  let initial: ButtonParams;
+  let initial: DividerParams;
   if (macro.params && Object.keys(macro.params).length > 0) {
     try {
       initial = javaMapToParams(macro.params);
     } catch (e) {
       console.warn(
-        '[WonikIPS] failed to parse existing button macro params; using defaults',
+        '[WonikIPS] failed to parse existing divider macro params; using defaults',
         e
       );
-      initial = ButtonParamsSchema.parse({});
+      initial = DividerParamsSchema.parse({});
     }
   } else {
-    initial = ButtonParamsSchema.parse({});
+    initial = DividerParamsSchema.parse({});
   }
 
   const root = createRoot(overlay);
 
-  const handleInsert = (params: ButtonParams): void => {
+  const handleInsert = (params: DividerParams): void => {
     const javaMap = paramsToJavaMap(params);
     destroyOverlay(root, overlay);
     cw.tinymce?.confluence?.macrobrowser?.macroBrowserComplete({
@@ -139,7 +139,7 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   };
 
   root.render(
-    createElement(ButtonDialogShell, {
+    createElement(DividerDialogShell, {
       initial,
       iconData,
       onInsert: handleInsert,
@@ -148,4 +148,4 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   );
 }
 
-registerMacro(MACRO_NAME, { opener: openButtonDialog });
+registerMacro(MACRO_NAME, { opener: openDividerDialog });

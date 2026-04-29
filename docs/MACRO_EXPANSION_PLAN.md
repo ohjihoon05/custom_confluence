@@ -2,6 +2,7 @@
 
 > Cards 매크로(1.0.23)에서 검증된 패턴을 다른 매크로로 확장.
 > 작성: 2026-04-29
+> 진행: Phase 11(Button 1.0.26) → Phase 12(Divider) → Phase 13(Title 1.1.1~1.1.3) → **Phase 14(Panel 1.1.4~1.1.7) ✓**. 다음 = Phase 15(BackgroundImage).
 
 ---
 
@@ -29,12 +30,12 @@
 ## 2. 권장 진행 순서 — 단순부터
 
 ```
-Phase 11 → Button         (1.5~2일)  ← Cards 패턴 검증 (가장 단순한 두 번째 성공)
-Phase 12 → Divider        (1일)
-Phase 13 → PrettyTitle    (1일)
-Phase 14 → Panel          (2~3일)    ← body 처리 패턴 추가
-Phase 15 → BackgroundImage (2~3일)   ← 이미지 업로드 컴포넌트 신규
-Phase 16 → Tab/TabCollection (5~7일) ← nested macro 추상화
+Phase 11 ✓ Button         (1.0.26)
+Phase 12 ✓ Divider
+Phase 13 ✓ PrettyTitle    (1.1.1~1.1.3)
+Phase 14 ✓ Panel          (1.1.4~1.1.7)  ← RICH_TEXT body + nested JSON 직렬화 패턴 추가
+Phase 15 → BackgroundImage (2~3일)        ← 다음. 이미지 업로드 컴포넌트 신규 + RICH_TEXT body 재사용
+Phase 16 → Tab/TabCollection (5~7일)       ← nested macro 추상화
 Phase 17 → 디자인 토큰 통합 + 한국어 i18n (3일)
 Phase 18 → DC 배포 + 회귀 검증 (1일)
 ```
@@ -90,14 +91,19 @@ schema: text, fontSize, fontWeight, color, accentColor,
         alignment, accentLineWidth, accentLinePosition('top'|'bottom'|'none')
 ```
 
-### 3.4 Panel (Phase 14)
+### 3.4 Panel (Phase 14) — 완료 (1.1.4~1.1.7)
 
-**새 추상화 필요**: 매크로 body. Aura Panel은 Velocity `$body`로 매크로 안 콘텐츠를 받는데, 우리 React 패널은 body를 직접 편집할 수 없음 (Confluence가 인라인으로 처리). 두 방식:
+**새 추상화 추가됨**:
+1. **단일 `styles` 키 nested JSON 직렬화** — Cards/Button/Divider는 평탄 K=V map인데, Panel은 `styles` 한 키에 `{base, headline, header, body}` 4섹션 nested JSON. Schema도 nested Zod, mapper는 `JSON.stringify(stripNulls(params))`. ADR-021.
+2. **RICH_TEXT body 처리** — Panel.getBodyType()=RICH_TEXT. `macroBrowserComplete` 호출 시 `bodyHtml: ''` 명시 안 하면 `MacroResource.getMacroBody`가 NPE → 500. ADR-019. 향후 BackgroundImage/Tab/TabCollection에 동일.
+3. **Optional 섹션 토글** — headline/header.icon이 nullable. UI에서 Toggle on/off로 set ↔ null 전환. mapper `stripNulls`가 null 키 자동 제거.
+4. **Aura JSON 구조 보존** — `body.text.texAlign` 오타 그대로(`textAlign` 아님), Aura default JSON과 byte-level 호환. 색상/크기/그림자/border 4면 toggle/rounded preset/shadow preset 모두 Aura 원본 동작과 시각 일치.
 
-- (a) **Body는 Confluence 에디터가 처리, 우리 패널은 메타데이터만**: title/color/elevation 등만 우리 패널, body는 매크로 삽입 후 편집기에서 직접.
-- (b) **Body 미리보기만 모달에 표시**: 우리 패널에서 "body는 매크로 안 콘텐츠로 편집됩니다" 안내.
+**chrome 라벨**: 1.1.6에서 `\"Aura Panel\"` → `\"Wonik Panel\"` byte 패치(main.js + main-min.js). docs/AURA_3.8.0_ANALYSIS.md §17.7 표 참조.
 
-추천 (a). Aura도 동일 방식.
+**Templates 탭(12+ 프리셋)**: 1.1.4에서는 Advanced Config만 구현. Templates는 후속 빌드(1.2.x)에서 "프리셋 → form 값 채워넣기" 한 겹 위에 얹기로 분리.
+
+**iconData provider 회귀 fix(동봉)**: 1.0.24 registry 패턴 도입 후 main.tsx가 cards의 setIconDataProvider만 호출하던 구조라 Button/Divider/Panel의 IconPicker가 빈 상태였음(노출은 1.1.4 Panel header.icon이 핵심 UX라 처음). macro-registry로 통합. ADR-020.
 
 ### 3.5 BackgroundImage (Phase 15)
 

@@ -154,12 +154,13 @@ atlas-package -P server -DskipTests
 
 **식별 규칙**: 공백 포함된 큰따옴표 문자열(`"Aura X"`)만 라벨로 간주. 식별자/URL/CSS는 공백 없으니 자연 분리.
 
-**절차**: `docs/AURA_3.8.0_ANALYSIS.md` §17 참조. 1회 등장 검증 → Python `replace(target, replacement, 1)` → `assert count==1` → 빌드 → JAR 디핑 → 시각 검증 → 회귀 테스트(매크로 삽입/저장/렌더링).
+**절차**: `docs/AURA_3.8.0_ANALYSIS.md` §17 참조. 1회 등장 검증 → Python `replace(target, replacement, 1)` → `assert count==1` → **`main.js`와 `main-min.js` 둘 다 패치** → 빌드 → JAR 디핑 → 시각 검증 → 회귀 테스트(매크로 삽입/저장/렌더링).
 
 **에러 케이스**:
 - 2회 이상 등장 → 컨텍스트 분리 필요(앞뒤 문자로 더 긴 패턴 만들기)
 - 패치 후 main.js 안 바뀐 것처럼 보임 → 브라우저 캐시(`Ctrl+Shift+R`) 또는 Confluence 재시작
 - 의도치 않은 곳 치환 → `main.js.bak` 으로 롤백 후 재시도
+- **main.js만 패치하고 main-min.js를 빠뜨림 (1.1.2 회귀)** → Confluence 런타임은 minified 버전을 로드하므로 화면 미반영. src에 `main-min.js`가 없으면 `target/classes/client/static/js/main-min.js`를 src로 복사한 뒤 동일 byte-level 치환. 빌드 파이프라인이 main-min.js를 자동 생성하지 않음(minifier 플러그인 부재)을 인지할 것.
 
 ---
 
@@ -309,6 +310,87 @@ var $=(Te,oe)=>ev(Te,tv(oe));   // ← object spread helper
 - bundle 시작 부분에 `var qm=...`, `var $=...` 같은 helper 선언 없음 (`head -c 80`이 `typeof process==...` 직후 `(function(){"use strict";` 로 이어짐).
 - Cards + Button 둘 다 편집/삽입/저장/렌더링 정상.
 - Confluence batch.js init 에러 사라짐.
+
+---
+
+### ADR-019: RICH_TEXT body 매크로는 `macroBrowserComplete`에 빈 `bodyHtml`을 명시 전달
+
+**결정**: `getBodyType() == RICH_TEXT`인 매크로(현재 Panel, 추후 BackgroundImage / Tab / TabCollection)의 자체 패널 opener에서 `tinymce.confluence.macrobrowser.macroBrowserComplete(...)` 호출 시 `bodyHtml: ''`을 **반드시 포함**한다. NONE body 매크로(Cards/Button/Divider)는 생략 가능.
+
+**이유**: 1.1.4에서 Panel opener를 NONE body 매크로(Cards/Button) 패턴 그대로 만들고 body 키 없이 호출했더니 `POST /rest/tinymce/1/macro/placeholder`가 500을 반환:
+
+```
+java.lang.NullPointerException: Missing storage body
+  at com.atlassian.confluence.content.render.xhtml.definition.RichTextMacroBody.withStorage(...)
+  at com.atlassian.confluence.tinymceplugin.rest.MacroResource.getMacroBody(...)
+  at com.atlassian.confluence.tinymceplugin.rest.MacroResource.generatePlaceHolder(...)
+```
+
+Confluence v4 매크로 placeholder REST가 RICH_TEXT 매크로의 storage body를 `null` 그대로 받아서 NPE. Title(PLAIN_TEXT)에서는 사용자 입력 텍스트를 escape해서 `bodyHtml`로 보내고 있었기에 노출되지 않은 회귀.
+
+**원본 디핑**: Aura main.js가 `t.confluence.macrobrowser.macroBrowserComplete({name:l.name,bodyHtml:d,params:g})` 패턴을 모든 매크로(NONE 포함)에 공통 사용. 즉 NONE 매크로도 무해한 `bodyHtml: ''`을 보내고 있었음.
+
+**대안**: `<p><br/></p>` placeholder string을 보내는 방안도 있으나 빈 string이 NPE를 막기에 충분(`RichTextMacroBody.withStorage("")` 통과). Confluence가 자체적으로 빈 body → 빈 paragraph 변환을 처리.
+
+**적용 범위**: Panel(1.1.5 fix). 향후 BackgroundImage/Tab/TabCollection 자체 패널화 시 동일 패턴 적용.
+
+**검증 (1.1.5)**:
+- Panel 매크로 첫 삽입 → `/rest/tinymce/1/macro/placeholder`가 200 + placeholder HTML 반환.
+- atlassian-confluence.log에 `Missing storage body` NPE 사라짐.
+- 기존 1.1.x Title의 `bodyHtml: escapeHtml(text)` 동작 회귀 0.
+
+---
+
+### ADR-020: iconData provider는 macro-registry로 통합 (per-macro setIconDataProvider 제거)
+
+**결정**: `host/macro-registry.ts`에 단일 `setGlobalIconDataProvider` / `getGlobalIconData` API를 두고, 모든 매크로 opener는 이를 통해 iconData를 조회한다. 각 매크로 파일의 `setIconDataProvider` export는 제거.
+
+**이유**: 1.0.24 registry 패턴 도입 후 `main.tsx`는 매크로 추가 때마다 손대지 않는 게 원칙(`docs/PARALLEL_DEV_GUIDE.md` §2.2). 그런데 iconData 주입은 `main.tsx`에서 Cards opener의 `setIconDataProvider`를 import해서 한 번 호출하는 패턴이 그대로 남아있어, **Button/Divider/Panel의 IconPicker가 빈 상태로 동작**하는 회귀가 잠복(1.0.26~1.1.3 동안 노출 안 됨 — 사용자가 IconPicker를 거의 안 써서). 1.1.4에서 Panel header.icon이 핵심 UX라 처음으로 노출.
+
+수정 후 main.tsx는 registry의 global provider만 호출, 새 매크로는 `getGlobalIconData()`를 import해서 사용. 매크로 추가 시 host 파일/main.tsx 무수정 원칙 회복.
+
+**구조**:
+```ts
+// host/macro-registry.ts
+let iconDataProvider: () => Record<string, IconMeta> = () => ({});
+export function setGlobalIconDataProvider(p) { iconDataProvider = p; }
+export function getGlobalIconData() { return iconDataProvider(); }
+
+// main.tsx
+import { setGlobalIconDataProvider } from './host/macro-registry';
+setGlobalIconDataProvider(() => iconDataCache);
+
+// macros/{name}.ts
+import { registerMacro, getGlobalIconData } from '../host/macro-registry';
+const iconData = getGlobalIconData();  // opener 안에서 매번 최신 데이터 조회
+```
+
+**적용 범위**: Cards/Button/Divider/Panel 일괄 변경 (1.1.4). Title은 IconPicker 미사용이라 영향 없음.
+
+**검증 (1.1.4)**: Cards/Button/Divider/Panel 모두 IconPicker가 1.1MB icondata.json 로드 후 그리드 정상 렌더.
+
+---
+
+### ADR-021: Panel은 단일 `styles` 키에 nested JSON 직렬화 — Cards/Button/Divider의 평탄 K=V 패턴과 다름
+
+**결정**: Panel 매크로는 모든 스타일(base/headline/header/body)을 단일 macro param `styles`(JSON.stringify된 string)에 담는다. Schema는 nested Zod, mapper는 단순 `JSON.stringify` + null-stripping.
+
+**이유**: `Panel.java:71~120`의 `renderPanel()`이 `map.get("styles")`를 `Gson.fromJson(styles, PanelStyles.class)`로 deserialize하는 구조. `PanelStyles.java`가 inner class 4개(PanelBase / PanelHeadline / PanelHeader / PanelBody)로 nested + 각각 `aurastyles.*`(Border/BorderRadius/BoxShadow/Size/Text/Icon/Alignment/BackgroundColor) 참조. Cards/Button/Divider처럼 평탄한 K=V map이 아니라 JSON 한 덩이를 받는 구조.
+
+Divider도 비슷한 패턴(`serializedStyles` 키)을 갖지만 Divider는 schema가 평탄해서 mapper가 수동으로 nested JSON으로 조립. Panel은 nested 자체가 본질적인 데이터(`base.border.color`, `headline.text.fontSize` 등 깊이 2~3) — 평탄화하면 mapper 코드가 비대해지고 사용자 UI(헤드라인 토글, 보더 4면 토글) 표현이 복잡해짐.
+
+**대안 검토**:
+- (a) **Schema도 nested + mapper는 단순 stringify (채택)** — UI form에서 nested setState 사용. mapper는 `JSON.stringify(stripNulls(params))`만.
+- (b) Schema는 평탄 + mapper에서 nested JSON 조립 — Divider 패턴. Panel은 sections 4개가 명시적으로 nested라 평탄화 시 키 이름이 `baseBorderColor` 등으로 길어지고 optional 섹션 토글(`hasHeadline` flag)이 데이터/UI 모두 이중관리.
+
+**중요 — Aura 원본 JSON 구조 보존**:
+- `body.text.texAlign` (textAlign 아님) — Aura의 default JSON에 그대로 박힌 오타. 우리도 `texAlign`으로 보존(스키마/UI/mapper 일관). Java `Text.java`의 setter는 `setTextAlign(...)`이지만 Gson은 field name을 사용하니 JSON 키만 정확하면 됨.
+- `boxShadow` field name 그대로 (PanelBase의 setter는 `setBoxshadow` 소문자 s지만 field는 `boxShadow`).
+- `headline`/`header` 섹션은 nullable로 직렬화 — Aura는 "off"인 섹션을 null이 아닌 omit. 우리 mapper도 `stripNulls`로 null/undefined 키 제거.
+
+**적용 범위**: Panel(1.1.4). 향후 같은 nested 패턴이 필요한 매크로(BackgroundImage 일부 옵션, TabCollection의 panel-like config)에 재사용.
+
+**검증 (1.1.4)**: 빈 styles → Schema default(Aura와 동일 JSON) 적용. 사용자 변경 → form에서 nested setState → mapper가 server에 JSON.stringify 전송 → Confluence 페이지 게시 시 Java가 deserialize → CSS 스타일 정상 적용.
 
 ---
 

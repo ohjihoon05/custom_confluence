@@ -1,37 +1,37 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement, useState } from 'react';
-import { ButtonEditor } from '../editors/ButtonEditor/ButtonEditor';
-import { javaMapToParams, paramsToJavaMap } from '../schema/button-mapper';
-import { ButtonParamsSchema, type ButtonParams } from '../schema/button';
+import { PanelEditor } from '../editors/PanelEditor/PanelEditor';
+import { javaMapToParams, paramsToJavaMap } from '../schema/panel-mapper';
+import { PanelParamsSchema, type PanelParams } from '../schema/panel';
 import type { IconMeta } from '../components';
 import type { ConfluenceWindow, MacroBrowserMacro } from '../host/types';
 import { registerMacro, getGlobalIconData } from '../host/macro-registry';
 import dialogStyles from '../host/dialog.module.css';
 
-const MACRO_NAME = 'aura-button';
-const DIALOG_ID = 'wonikips-button-editor-overlay';
+const MACRO_NAME = 'aura-panel';
+const DIALOG_ID = 'wonikips-panel-editor-overlay';
 
-interface ButtonDialogShellProps {
-  initial: ButtonParams;
+interface PanelDialogShellProps {
+  initial: PanelParams;
   iconData: Record<string, IconMeta>;
-  onInsert: (params: ButtonParams) => void;
+  onInsert: (params: PanelParams) => void;
   onCancel: () => void;
 }
 
-function ButtonDialogShell({
+function PanelDialogShell({
   initial,
   iconData,
   onInsert,
   onCancel,
-}: ButtonDialogShellProps) {
-  const [params, setParams] = useState<ButtonParams>(initial);
+}: PanelDialogShellProps) {
+  const [params, setParams] = useState<PanelParams>(initial);
   return createElement(
     'div',
     { className: dialogStyles.dialog },
     createElement(
       'div',
       { className: dialogStyles.header },
-      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Button'),
+      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Panel'),
       createElement(
         'button',
         {
@@ -46,7 +46,7 @@ function ButtonDialogShell({
     createElement(
       'div',
       { className: dialogStyles.body },
-      createElement(ButtonEditor, {
+      createElement(PanelEditor, {
         value: params,
         onChange: setParams,
         iconData,
@@ -100,7 +100,7 @@ function destroyOverlay(root: Root | null, overlay: HTMLElement): void {
   }
 }
 
-export function openButtonDialog(macro: MacroBrowserMacro): void {
+export function openPanelDialog(macro: MacroBrowserMacro): void {
   const cw = getConfluenceWindow();
   if (!cw) return;
 
@@ -108,29 +108,34 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   const overlay = ensureOverlay();
   overlay.className = dialogStyles.overlay ?? '';
 
-  let initial: ButtonParams;
+  let initial: PanelParams;
   if (macro.params && Object.keys(macro.params).length > 0) {
     try {
       initial = javaMapToParams(macro.params);
     } catch (e) {
       console.warn(
-        '[WonikIPS] failed to parse existing button macro params; using defaults',
+        '[WonikIPS] failed to parse existing panel macro params; using defaults',
         e
       );
-      initial = ButtonParamsSchema.parse({});
+      initial = PanelParamsSchema.parse({});
     }
   } else {
-    initial = ButtonParamsSchema.parse({});
+    initial = PanelParamsSchema.parse({});
   }
 
   const root = createRoot(overlay);
 
-  const handleInsert = (params: ButtonParams): void => {
+  const handleInsert = (params: PanelParams): void => {
     const javaMap = paramsToJavaMap(params);
     destroyOverlay(root, overlay);
+    // Panel.getBodyType() == RICH_TEXT — server's MacroResource.getMacroBody
+    // throws NPE("Missing storage body") if the request omits body. Aura
+    // main.js sends `bodyHtml: d`. Empty string is enough for a fresh
+    // insert; users fill the body inline after the placeholder lands.
     cw.tinymce?.confluence?.macrobrowser?.macroBrowserComplete({
       name: MACRO_NAME,
       params: javaMap,
+      bodyHtml: '',
     });
   };
 
@@ -139,7 +144,7 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   };
 
   root.render(
-    createElement(ButtonDialogShell, {
+    createElement(PanelDialogShell, {
       initial,
       iconData,
       onInsert: handleInsert,
@@ -148,4 +153,4 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   );
 }
 
-registerMacro(MACRO_NAME, { opener: openButtonDialog });
+registerMacro(MACRO_NAME, { opener: openPanelDialog });

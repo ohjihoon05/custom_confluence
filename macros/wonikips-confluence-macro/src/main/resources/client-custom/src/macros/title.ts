@@ -1,37 +1,30 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement, useState } from 'react';
-import { ButtonEditor } from '../editors/ButtonEditor/ButtonEditor';
-import { javaMapToParams, paramsToJavaMap } from '../schema/button-mapper';
-import { ButtonParamsSchema, type ButtonParams } from '../schema/button';
-import type { IconMeta } from '../components';
+import { TitleEditor } from '../editors/TitleEditor/TitleEditor';
+import { javaMapToParams, paramsToJavaMap } from '../schema/title-mapper';
+import { TitleParamsSchema, type TitleParams } from '../schema/title';
 import type { ConfluenceWindow, MacroBrowserMacro } from '../host/types';
-import { registerMacro, getGlobalIconData } from '../host/macro-registry';
+import { registerMacro } from '../host/macro-registry';
 import dialogStyles from '../host/dialog.module.css';
 
-const MACRO_NAME = 'aura-button';
-const DIALOG_ID = 'wonikips-button-editor-overlay';
+const MACRO_NAME = 'aura-pretty-title';
+const DIALOG_ID = 'wonikips-title-editor-overlay';
 
-interface ButtonDialogShellProps {
-  initial: ButtonParams;
-  iconData: Record<string, IconMeta>;
-  onInsert: (params: ButtonParams) => void;
+interface TitleDialogShellProps {
+  initial: TitleParams;
+  onInsert: (params: TitleParams) => void;
   onCancel: () => void;
 }
 
-function ButtonDialogShell({
-  initial,
-  iconData,
-  onInsert,
-  onCancel,
-}: ButtonDialogShellProps) {
-  const [params, setParams] = useState<ButtonParams>(initial);
+function TitleDialogShell({ initial, onInsert, onCancel }: TitleDialogShellProps) {
+  const [params, setParams] = useState<TitleParams>(initial);
   return createElement(
     'div',
     { className: dialogStyles.dialog },
     createElement(
       'div',
       { className: dialogStyles.header },
-      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Button'),
+      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Title'),
       createElement(
         'button',
         {
@@ -46,10 +39,9 @@ function ButtonDialogShell({
     createElement(
       'div',
       { className: dialogStyles.body },
-      createElement(ButtonEditor, {
+      createElement(TitleEditor, {
         value: params,
         onChange: setParams,
-        iconData,
         hideFooter: true,
       })
     ),
@@ -79,6 +71,14 @@ function getConfluenceWindow(): ConfluenceWindow | null {
   return window as unknown as ConfluenceWindow;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function ensureOverlay(): HTMLDivElement {
   let overlay = document.getElementById(DIALOG_ID) as HTMLDivElement | null;
   if (!overlay) {
@@ -100,37 +100,39 @@ function destroyOverlay(root: Root | null, overlay: HTMLElement): void {
   }
 }
 
-export function openButtonDialog(macro: MacroBrowserMacro): void {
+export function openTitleDialog(macro: MacroBrowserMacro): void {
   const cw = getConfluenceWindow();
   if (!cw) return;
 
-  const iconData = getGlobalIconData();
   const overlay = ensureOverlay();
   overlay.className = dialogStyles.overlay ?? '';
 
-  let initial: ButtonParams;
+  let initial: TitleParams;
   if (macro.params && Object.keys(macro.params).length > 0) {
     try {
       initial = javaMapToParams(macro.params);
     } catch (e) {
       console.warn(
-        '[WonikIPS] failed to parse existing button macro params; using defaults',
+        '[WonikIPS] failed to parse existing title macro params; using defaults',
         e
       );
-      initial = ButtonParamsSchema.parse({});
+      initial = TitleParamsSchema.parse({});
     }
   } else {
-    initial = ButtonParamsSchema.parse({});
+    initial = TitleParamsSchema.parse({});
   }
 
   const root = createRoot(overlay);
 
-  const handleInsert = (params: ButtonParams): void => {
+  const handleInsert = (params: TitleParams): void => {
     const javaMap = paramsToJavaMap(params);
+    // PrettyTitle은 PLAIN_TEXT body. 텍스트는 escape하고 줄바꿈은 Java가 <br />로 변환.
+    const bodyHtml = escapeHtml(params.text);
     destroyOverlay(root, overlay);
     cw.tinymce?.confluence?.macrobrowser?.macroBrowserComplete({
       name: MACRO_NAME,
       params: javaMap,
+      bodyHtml,
     });
   };
 
@@ -139,13 +141,12 @@ export function openButtonDialog(macro: MacroBrowserMacro): void {
   };
 
   root.render(
-    createElement(ButtonDialogShell, {
+    createElement(TitleDialogShell, {
       initial,
-      iconData,
       onInsert: handleInsert,
       onCancel: handleCancel,
     })
   );
 }
 
-registerMacro(MACRO_NAME, { opener: openButtonDialog });
+registerMacro(MACRO_NAME, { opener: openTitleDialog });

@@ -7,3 +7,6 @@
 // host/macro-registry에 자기 자신을 등록한다.
 import './cards';
 import './button';
+import './divider';
+import './title';
+import './panel';

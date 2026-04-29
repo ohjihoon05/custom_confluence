@@ -14,9 +14,10 @@
 
 - **대상**: Confluence DC 7.19.8 (V4/Fabric 에디터)
 - **목적**: Aura 플러그인의 매크로 편집 패널을 WonikIPS 자체 React UI로 대체
-- **현재 자체 패널화된 매크로**: Cards (1.0.23), Button (1.0.26)
+- **현재 자체 패널화된 매크로**: Cards (1.0.23), Button (1.0.26), Divider + Title (1.1.1)
 - **결과**: 매크로 클릭 → 풀스크린 React 모달 → 삽입 → 페이지 저장 시 Aura 백엔드 그대로 사용해 렌더링 (storage XML / Java macro 무수정)
-- **인프라 (1.0.24)**: registry 패턴으로 새 매크로 추가는 5개 파일만 — host/v4-adapter, main.tsx 무수정. 다른 매크로(Panel/Tab/Title/...)는 같은 패턴으로 점진 전환.
+- **인프라 (1.0.24)**: registry 패턴으로 새 매크로 추가는 5개 파일만 — host/v4-adapter, main.tsx 무수정. 다른 매크로(Panel/Tab/Background/...)는 같은 패턴으로 점진 전환.
+- **알려진 이슈 (1.1.1)**: Title 매크로는 편집 모드에서 H1 본문이 inline 렌더되며 "Aura Title" chrome 라벨 노출. 다른 매크로는 `EditorImagePlaceholder` Java 구현 덕에 작은 미리보기 이미지로 표시. PrettyTitle.java만 미구현 → 1.1.2에서 Java 수정 예정 (`docs/NEXT_TASK_PROMPT_1.1.2.md`).
 
 다른 매크로(Button, Panel, Tab 등)는 여전히 Aura 그대로 — 점진 전환 가능.
 
@@ -455,18 +456,32 @@ atlas-package -P server -Dmaven.test.skip=true
 
 ## 10. 새 매크로 추가하는 절차 (1.0.24 registry 패턴 이후)
 
-새 매크로를 자체 React 패널로 만들 때 — **5개 파일 + barrel 한 줄**만 추가, host/v4-adapter / main.tsx / Java 무수정. (Button 1.0.26이 이 절차로 추가된 실증)
+새 매크로를 자체 React 패널로 만들 때 — **5개 파일 + barrel 한 줄**만 추가, host/v4-adapter / main.tsx / Java 무수정. (Button 1.0.26 + Divider/Title 1.1.1이 이 절차로 추가된 실증)
 
 1. **Aura 캡처**: `aura_image/{name}/` 폴더에 편집 패널 스크린샷 (Aura 라이선스 활성 후)
-2. **Schema 정의**: `src/schema/{name}.ts` (Cards/Button 패턴 참고). Aura `{Name}.java` + `{Name}.vm` 시그니처 분석해서 정확히 정의.
-3. **Mapper**: `src/schema/{name}-mapper.ts` (UI ↔ Aura Java Map 양방향 변환)
-4. **편집 컴포넌트**: `src/editors/{Name}Editor/{Name}Editor.tsx` (+ `.module.css`)
+2. **매크로 식별자 확인 (★)**: `atlassian-plugin.xml`의 `<xhtml-macro name="...">` 값을 그대로 사용. **자기 추측 금지**. Java 클래스명과 다른 경우 있음 (예: `PrettyTitle.java` ↔ `aura-pretty-title`). 안 맞으면 monkey-patch 매칭 실패 → Aura 기본 패널이 뜸 (1.0.27 회귀).
+   ```bash
+   grep "xhtml-macro name=" src/main/resources-server/atlassian-plugin.xml
+   ```
+3. **Schema 정의**: `src/schema/{name}.ts` (Cards/Button 패턴 참고). Aura `{Name}.java` + `{Name}.vm` 시그니처 분석해서 정확히 정의.
+4. **Mapper**: `src/schema/{name}-mapper.ts` (UI ↔ Aura Java Map 양방향 변환). 매크로가 `serializedStyles` JSON 같은 복합 키를 쓸 수도 있으니 Java의 `execute()` 메서드 매핑 로직 먼저 확인 (예: Divider).
+5. **편집 컴포넌트**: `src/editors/{Name}Editor/{Name}Editor.tsx` (+ `.module.css`)
    - controlled mode 지원 (`value` / `onChange` / `hideFooter` props)
-5. **매크로 모듈**: `src/macros/{name}.ts` — Dialog shell + opener + 파일 끝에 `registerMacro('aura-{name}', { opener: open{Name}Dialog })`
-6. **Barrel**: `src/macros/index.ts`에 `import './{name}';` 한 줄 추가
-7. **빌드 + 검증**: `atlas-package` → 콘솔 로그에 등록된 매크로 이름이 나오는지 확인
+6. **매크로 모듈**: `src/macros/{name}.ts` — Dialog shell + opener + 파일 끝에 `registerMacro('aura-{xhtml-name}', { opener: open{Name}Dialog })` (★ 2단계에서 확인한 식별자)
+7. **Barrel**: `src/macros/index.ts`에 `import './{name}';` 한 줄 추가
+8. **빌드 + 검증**: `atlas-package` → 콘솔 로그 `Monkey-patched setMacroJsOverride (via registry): ...` 줄에서 자기 매크로명이 보이는지 확인 → 매크로 브라우저에서 클릭 → 우리 패널 뜨는지 확인
 
 `host/v4-adapter.ts`는 registry에서 자동으로 매크로를 가져오므로 **수정 안 함**. `main.tsx`도 barrel `import './macros'`이 모든 매크로를 eager 로드하므로 **수정 안 함**.
+
+**Body가 PLAIN_TEXT인 매크로 (Title 등)**: `paramsToJavaMap` 외에 body 텍스트도 `bodyHtml`로 같이 보내야 함. Java가 body를 `HtmlUtils.htmlEscape()` 처리하니 평문으로 escape만 해서 전달.
+```ts
+const bodyHtml = escapeHtml(params.text);
+cw.tinymce?.confluence?.macrobrowser?.macroBrowserComplete({
+  name: MACRO_NAME, params: javaMap, bodyHtml,
+});
+```
+
+**EditorImagePlaceholder 미구현 매크로**: Title처럼 Java가 `EditorImagePlaceholder`를 implement 안 하면 편집 모드에서 body HTML이 inline 렌더되며 매크로 chrome("Aura Title" 라벨)이 그대로 노출된다. View 모드는 정상. 깔끔한 편집 모드를 원하면 Java 수정 필요 (`docs/NEXT_TASK_PROMPT_1.1.2.md` 참조).
 
 **병렬 작업** (여러 매크로 동시 진행): `docs/PARALLEL_DEV_GUIDE.md` 참조 — git worktree로 매크로별로 분기.
 
@@ -510,7 +525,7 @@ head -c 80 dist/wonikips-editor.js
 head -c 4 dist/wonikips-editor.js | grep -c "^var "    # 0 이어야 정상
 ```
 
-### 11.3 회귀 추적 (실제 1.0.16~1.0.26)
+### 11.3 회귀 추적 (실제 1.0.16~1.1.1)
 
 | 버전 | 증상 | 수정 |
 |------|------|------|
@@ -524,6 +539,8 @@ head -c 4 dist/wonikips-editor.js | grep -c "^var "    # 0 이어야 정상
 | 1.0.24 | (인프라) 매크로 추가 시 host/v4-adapter 매번 수정 필요 | registry 패턴 + `src/macros/` 디렉토리 + barrel import (ADR-017) |
 | 1.0.25 | 편집 페이지 dead, `$.extend is not a function`, `Cannot convert undefined or null to object` 연쇄 | esbuild이 ES2015 lower 중 `var $=...` helper를 전역에 hoist해 jQuery `$` 덮어씀 (Button 추가로 spread 사용량 늘면서 helper 이름이 `$`로 배정) |
 | 1.0.26 | (1.0.25 fix) | `vite.config.ts` `target: 'es2015'` → `'es2019'` (ADR-018). Cards + Button 둘 다 정상 |
+| 1.0.27 (시도) | Divider + Title 추가 → Divider 정상, Title은 우리 패널 안 뜨고 Aura 기본 패널이 뜸 | Title의 `MACRO_NAME` 상수가 `aura-title`인데 실제 atlassian-plugin.xml `xhtml-macro name`은 `aura-pretty-title` — 미스매치로 monkey-patch 매칭 실패 |
+| 1.1.1 | (1.0.27 fix + 버전 점프) | `MACRO_NAME = 'aura-pretty-title'` 수정. 1.0.x → 1.1.x 점프 (Cards/Button/Divider/Title 4매크로 동작 검증된 마일스톤). Title은 편집 모드에서 H1 inline 렌더 이슈 있음 (1.1.2 예정) |
 
 ---
 
@@ -554,7 +571,10 @@ A. Server 환경 검증 후 동일 코드로 `atlas-package -P dc` 빌드 → `*
 A. React 컴포넌트(`src/components/`, `src/editors/`)는 그대로 이식 가능. 변경 필요한 부분: `src/host/v4-adapter.ts`를 `forge-adapter.ts`로 (`@forge/bridge` 사용), Java 백엔드를 Forge function(Node.js)으로 재작성. CUSTOM_PANEL_PLAN.md §7 참조.
 
 **Q. 다른 매크로도 같은 방법으로 자체 패널화 가능?**
-A. 가능. monkey-patch에 `name === 'aura-{macro}'` 분기 추가 + 해당 매크로용 schema/editor/dialog shell 작성. 패턴 동일.
+A. 가능. 1.0.24 registry 인프라 이후로는 monkey-patch 분기 없이 `src/macros/{name}.ts`에서 `registerMacro('aura-{xhtml-name}', { opener })` 호출 + barrel 한 줄로 끝. host/v4-adapter, main.tsx 무수정. 1.1.1까지 Cards/Button/Divider/Title 4매크로 실증.
+
+**Q. 매크로명은 어디서 알 수 있어?**
+A. `atlassian-plugin.xml`의 `<xhtml-macro name="...">` 값 (Java 클래스명과 다른 경우 있음 — PrettyTitle.java ↔ aura-pretty-title). 추측 금지. 안 맞으면 우리 패널 안 뜨고 Aura 기본 패널 뜸.
 
 ---
 

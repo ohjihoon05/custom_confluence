@@ -5,19 +5,11 @@ import { javaMapToParams, paramsToJavaMap } from '../schema/cards-mapper';
 import { CardsParamsSchema, type CardsParams } from '../schema/cards';
 import type { IconMeta } from '../components';
 import type { ConfluenceWindow, MacroBrowserMacro } from '../host/types';
-import { registerMacro } from '../host/macro-registry';
+import { registerMacro, getGlobalIconData } from '../host/macro-registry';
 import dialogStyles from '../host/dialog.module.css';
 
 const MACRO_NAME = 'aura-cards';
 const DIALOG_ID = 'wonikips-cards-editor-overlay';
-
-let getIconData: () => Record<string, IconMeta> = () => ({});
-
-export function setIconDataProvider(
-  provider: () => Record<string, IconMeta>
-): void {
-  getIconData = provider;
-}
 
 interface CardsDialogShellProps {
   initial: CardsParams;
@@ -130,7 +122,7 @@ export function openCardsDialog(macro: MacroBrowserMacro): void {
   const cw = getConfluenceWindow();
   if (!cw) return;
 
-  const iconData = getIconData();
+  const iconData = getGlobalIconData();
   const overlay = ensureOverlay();
   overlay.className = dialogStyles.overlay ?? '';
 

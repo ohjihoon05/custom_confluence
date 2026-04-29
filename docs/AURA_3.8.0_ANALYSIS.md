@@ -963,29 +963,45 @@ String src = String.format("%s/plugins/servlet/aura/macro-preview?templateName=C
 
 ### 17.4 안전 패치 절차
 
+> **중요 (1.1.3 회귀 사례)**: Confluence가 런타임에 로드하는 건 `main.js`가 아니라 **`main-min.js`** 다. src에는 `main.js`만 있고 `main-min.js`는 `target/classes/client/static/js/`에 stale 상태로 남아있다(빌드가 재생성하지 않음 — minifier 플러그인 없음). 따라서 **두 파일 모두 패치해야** 라벨 변경이 반영된다. main.js만 패치하면 빌드는 성공하고 JAR도 새 버전으로 뜨지만 화면은 그대로다.
+
 ```bash
 # 1. 등장 횟수 검증 (반드시 1회여야 함, 2회 이상이면 컨텍스트 분리 필요)
 grep -c '"Aura Cards"' src/main/resources/client/static/js/main.js
 
-# 2. Python 바이트-레벨 치환 (sed 금지 — minified는 한 줄이라 sed가 깨질 수 있음)
-cd src/main/resources/client/static/js && python -c "
-src = open('main.js', 'rb').read()
-target = b'\"Aura Cards\"'
-replacement = b'\"WonikIPS Cards\"'
-count = src.count(target)
-assert count == 1, f'expected 1 occurrence, got {count}'
-out = src.replace(target, replacement, 1)
-assert out.count(target) == 0
-assert out.count(replacement) == 1
-open('main.js', 'wb').write(out)
-print(f'OK — size delta: {len(out)-len(src)} bytes')
+# 2-a. main-min.js를 src로 복사 (없으면)
+SRC=macros/wonikips-confluence-macro/src/main/resources/client/static/js
+TGT=macros/wonikips-confluence-macro/target/classes/client/static/js
+[ -f "$SRC/main-min.js" ] || cp "$TGT/main-min.js" "$SRC/main-min.js"
+[ -f "$SRC/main-min.js.map" ] || cp "$TGT/main-min.js.map" "$SRC/main-min.js.map"
+
+# 2-b. Python 바이트-레벨 치환 — main.js와 main-min.js 둘 다 (sed 금지 — minified는 한 줄이라 sed가 깨질 수 있음)
+cd "$SRC" && python -c "
+for fname in ['main.js', 'main-min.js']:
+    src = open(fname, 'rb').read()
+    target = b'\"Aura Cards\"'
+    replacement = b'\"WonikIPS Cards\"'
+    count = src.count(target)
+    assert count == 1, f'{fname}: expected 1 occurrence, got {count}'
+    out = src.replace(target, replacement, 1)
+    assert out.count(target) == 0
+    assert out.count(replacement) == 1
+    open(fname, 'wb').write(out)
+    print(f'{fname} OK — size delta: {len(out)-len(src)} bytes')
 "
 
-# 3. 결과 검증
-grep -c '"WonikIPS Cards"' main.js   # → 1
-grep -c '"Aura Cards"' main.js       # → 0
+# 3. 결과 검증 (둘 다 0/1 이어야 함)
+grep -c '"WonikIPS Cards"' main.js main-min.js
+grep -c '"Aura Cards"' main.js main-min.js
 
 # 4. pom 버전 bump → atlas-package -P server -Dmaven.test.skip=true → 업로드
+
+# 5. JAR 검증 (반드시 두 파일 모두 패치 확인)
+JAR=target/wonikips-confluence-macro-X.Y.Z-SNAPSHOT-server.jar
+unzip -p "$JAR" client/static/js/main.js     | grep -c "WonikIPS Cards"   # → 1
+unzip -p "$JAR" client/static/js/main-min.js | grep -c "WonikIPS Cards"   # → 1
+unzip -p "$JAR" client/static/js/main.js     | grep -c "Aura Cards"       # → 0
+unzip -p "$JAR" client/static/js/main-min.js | grep -c "Aura Cards"       # → 0
 ```
 
 ### 17.5 검증 체크리스트 (패치 후 회귀 방지)
@@ -995,7 +1011,7 @@ grep -c '"Aura Cards"' main.js       # → 0
 ```bash
 # 변경 파일이 다음으로 한정되어야 함:
 # - client/static/js/main.js (의도된 라벨 변경)
-# - client/static/js/main-min.js + main-min.js.map (자동 생성)
+# - client/static/js/main-min.js (의도된 라벨 변경 — 자동 생성 아님, 직접 패치 필요)
 # - atlassian-plugin.xml (버전 bump만)
 # - META-INF/MANIFEST.MF (버전 bump만)
 # - META-INF/maven/.../pom.xml + pom.properties (버전 bump만)
@@ -1017,4 +1033,18 @@ done
 ```bash
 # .bak가 원본 main.js 보관 중
 cp src/main/resources/client/static/js/main.js.bak src/main/resources/client/static/js/main.js
+# main-min.js는 .bak이 없으면 target/classes에서 다시 복사하거나, 원본 aura-3.8.0.jar에서 추출
 ```
+
+### 17.7 회귀 사례
+
+| 빌드 | 패치 대상 | 결과 |
+|------|----------|------|
+| 1.0.13 | `"Aura Cards"` → `"WonikIPS Cards"` | 매크로 브라우저 라벨 패치 — 화면 반영 ✓ (당시 main-min.js도 함께 패치된 상태였던 것으로 추정) |
+| 1.0.14 | `"Aura Card"` → `"WonikIPS Card"` | 카드 default title 패치 — 화면 반영 ✓ |
+| 1.1.2 | `"Aura Title"` → `"Wonik Title"` (main.js만) | **화면 미반영** — Confluence가 main-min.js를 로드하는데 그건 stale 상태 그대로 |
+| 1.1.3 | `"Aura Title"` → `"Wonik Title"` (main.js + main-min.js) | 편집 모드 chrome 라벨 패치 — 화면 반영 ✓ |
+| 1.1.6 | `\"Aura Panel\"` → `\"Wonik Panel\"` (main.js + main-min.js) | V4 chrome 라벨 패치 — 화면 반영 ✓. byte 패턴은 escape된 `\"Aura Panel\"`로 박혀있음(`:before { content: ... }` CSS-in-string). |
+| 1.1.7 | `'Aura Panel Title'` → `'Wonik Panel Title'` (TS) | main.js 미등장. 우리 schema/PanelEditor의 default headline text 두 곳만 수정. main.js 라벨 패치 절차 무관 — 일반 React 빌드 변경. |
+
+**교훈**: src에 `main-min.js`가 없으면 빌드는 성공하고 JAR에도 minified 버전이 들어가지만, 그건 `target/classes`의 stale 파일이다. 라벨 패치 작업은 반드시 src에 `main-min.js`를 두고 양쪽 파일을 같이 byte-level 치환해야 한다. JAR 검증 시 `unzip -p ... main-min.js | grep`로 패치 반영 확인 필수.

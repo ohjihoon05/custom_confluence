@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { CardsEditor } from './editors/CardsEditor/CardsEditor';
 import { createV4Host } from './host/v4-adapter';
-import { setIconDataProvider } from './macros/cards';
+import { setGlobalIconDataProvider } from './host/macro-registry';
 import './macros'; // eager self-register all macros into registry
 import type { IconMeta } from './components';
 
@@ -26,7 +26,7 @@ declare global {
 console.log('[WonikIPS Editor] bundle loaded');
 
 let iconDataCache: Record<string, IconMeta> = {};
-setIconDataProvider(() => iconDataCache);
+setGlobalIconDataProvider(() => iconDataCache);
 
 window.__wonikipsEditor = {
   version: '0.5.0-registry',
