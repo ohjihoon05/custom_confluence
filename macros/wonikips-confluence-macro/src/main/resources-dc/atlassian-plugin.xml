@@ -38,6 +38,7 @@
     <web-resource key="wonikips-editor-resources" name="WonikIPS Editor (React)">
         <dependency>com.atlassian.auiplugin:ajs</dependency>
         <resource type="download" name="wonikips-editor.js" location="/client-custom-built/wonikips-editor.js"/>
+        <resource type="download" name="wonikips-editor.css" location="/client-custom-built/wonikips-editor.css"/>
         <context>atl.general</context>
     </web-resource>
 
