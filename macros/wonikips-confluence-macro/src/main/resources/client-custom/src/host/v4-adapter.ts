@@ -144,13 +144,41 @@ function openCardsDialog(
 }
 
 let registered = false;
+let monkeyPatched = false;
+
+function installMonkeyPatch(getIcons: () => Record<string, IconMeta>): boolean {
+  const cw = getConfluenceWindow();
+  if (!cw?.AJS?.MacroBrowser?.setMacroJsOverride) return false;
+  if (monkeyPatched) return true;
+
+  const original = cw.AJS.MacroBrowser.setMacroJsOverride.bind(cw.AJS.MacroBrowser);
+  const ourOpener = (macro: MacroBrowserMacro): void =>
+    openCardsDialog(macro, getIcons());
+
+  const patched = function (
+    this: unknown,
+    name: string,
+    override: { opener: (macro: MacroBrowserMacro) => void }
+  ): void {
+    if (name === MACRO_NAME) {
+      original(name, { opener: ourOpener });
+      return;
+    }
+    original(name, override);
+  };
+  (patched as unknown as { __wonikipsPatched: boolean }).__wonikipsPatched = true;
+
+  cw.AJS!.MacroBrowser!.setMacroJsOverride = patched as unknown as typeof cw.AJS.MacroBrowser.setMacroJsOverride;
+  original(MACRO_NAME, { opener: ourOpener });
+  monkeyPatched = true;
+  console.log('[WonikIPS Editor] Monkey-patched setMacroJsOverride for', MACRO_NAME);
+  return true;
+}
 
 function tryRegister(getIcons: () => Record<string, IconMeta>): boolean {
   const cw = getConfluenceWindow();
   if (!cw?.AJS?.MacroBrowser?.setMacroJsOverride) return false;
-  cw.AJS.MacroBrowser.setMacroJsOverride(MACRO_NAME, {
-    opener: (macro) => openCardsDialog(macro, getIcons()),
-  });
+  installMonkeyPatch(getIcons);
   registered = true;
   console.log('[WonikIPS Editor] Registered V4 override for', MACRO_NAME);
   return true;
@@ -192,15 +220,20 @@ export function createV4Host({
 
       const initialResult = tryRegister(getIcons);
 
-      // Aura가 page-edit-loaded 이벤트에서 재등록할 수 있어 후행 재등록 필요.
-      // initial 등록 성공해도 이벤트 시점마다 다시 우리 핸들러로 덮어씀 (late wins).
+      // 이벤트마다 monkey-patch 재시도 (Aura가 setMacroJsOverride를 다시 정의했을 경우 대비)
       const reRegister = (): void => {
         const cw2 = getConfluenceWindow();
         if (!cw2?.AJS?.MacroBrowser?.setMacroJsOverride) return;
-        cw2.AJS.MacroBrowser.setMacroJsOverride(MACRO_NAME, {
-          opener: (macro) => openCardsDialog(macro, getIcons()),
-        });
-        console.log('[WonikIPS Editor] Re-registered V4 override on event');
+        const fn = cw2.AJS.MacroBrowser.setMacroJsOverride as unknown as {
+          __wonikipsPatched?: boolean;
+        };
+        if (!fn.__wonikipsPatched) {
+          monkeyPatched = false;
+          installMonkeyPatch(getIcons);
+        } else {
+          // already patched — 우리 핸들러는 자동으로 강제됨
+          console.log('[WonikIPS Editor] Monkey-patch still active');
+        }
       };
 
       try {
