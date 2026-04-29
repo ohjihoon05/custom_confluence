@@ -5,7 +5,65 @@ import { CardsParamsSchema, type CardsParams } from '../schema/cards';
 import type { IconMeta } from '../components';
 import type { ConfluenceWindow, MacroBrowserMacro, MacroEditorHost } from './types';
 import dialogStyles from './dialog.module.css';
-import { createElement, Fragment } from 'react';
+import { createElement, useState } from 'react';
+
+interface CardsDialogShellProps {
+  initial: CardsParams;
+  iconData: Record<string, IconMeta>;
+  onInsert: (params: CardsParams) => void;
+  onCancel: () => void;
+}
+
+function CardsDialogShell({ initial, iconData, onInsert, onCancel }: CardsDialogShellProps) {
+  const [params, setParams] = useState<CardsParams>(initial);
+  return createElement(
+    'div',
+    { className: dialogStyles.dialog },
+    createElement(
+      'div',
+      { className: dialogStyles.header },
+      createElement('h2', { className: dialogStyles.title }, 'WonikIPS Cards'),
+      createElement(
+        'button',
+        {
+          type: 'button',
+          className: dialogStyles.closeBtn,
+          onClick: onCancel,
+          'aria-label': 'Close',
+        },
+        '×'
+      )
+    ),
+    createElement(
+      'div',
+      { className: dialogStyles.body },
+      createElement(CardsEditor, {
+        value: params,
+        onChange: setParams,
+        iconData,
+        hideFooter: true,
+      })
+    ),
+    createElement(
+      'div',
+      { className: dialogStyles.footer },
+      createElement(
+        'button',
+        { type: 'button', className: dialogStyles.btn, onClick: onCancel },
+        '취소'
+      ),
+      createElement(
+        'button',
+        {
+          type: 'button',
+          className: `${dialogStyles.btn} ${dialogStyles.btnPrimary}`,
+          onClick: () => onInsert(params),
+        },
+        '삽입'
+      )
+    )
+  );
+}
 
 const MACRO_NAME = 'aura-cards';
 const DIALOG_ID = 'wonikips-cards-editor-overlay';
@@ -69,13 +127,13 @@ function openCardsDialog(
   const overlay = ensureOverlay();
   overlay.className = dialogStyles.overlay ?? '';
 
-  let initial: Partial<CardsParams> | undefined;
+  let initial: CardsParams;
   if (macro.params && Object.keys(macro.params).length > 0) {
     try {
       initial = javaMapToParams(macro.params);
     } catch (e) {
       console.warn('[WonikIPS] failed to parse existing macro params; using defaults', e);
-      initial = undefined;
+      initial = CardsParamsSchema.parse({});
     }
   } else {
     initial = CardsParamsSchema.parse({
@@ -91,7 +149,7 @@ function openCardsDialog(
 
   const root = createRoot(overlay);
 
-  const handleSave = (params: CardsParams): void => {
+  const handleInsert = (params: CardsParams): void => {
     const javaMap = paramsToJavaMap(params);
     const bodyHtml = buildBodyHtml(params);
     destroyOverlay(root, overlay);
@@ -107,39 +165,12 @@ function openCardsDialog(
   };
 
   root.render(
-    createElement(
-      Fragment,
-      null,
-      createElement(
-        'div',
-        { className: dialogStyles.dialog },
-        createElement(
-          'div',
-          { className: dialogStyles.header },
-          createElement('h2', { className: dialogStyles.title }, 'WonikIPS Cards'),
-          createElement(
-            'button',
-            {
-              type: 'button',
-              className: dialogStyles.closeBtn,
-              onClick: handleCancel,
-              'aria-label': 'Close',
-            },
-            '×'
-          )
-        ),
-        createElement(
-          'div',
-          { className: dialogStyles.body },
-          createElement(CardsEditor, {
-            initial,
-            iconData,
-            onSave: handleSave,
-            onCancel: handleCancel,
-          })
-        )
-      )
-    )
+    createElement(CardsDialogShell, {
+      initial,
+      iconData,
+      onInsert: handleInsert,
+      onCancel: handleCancel,
+    })
   );
 }
 

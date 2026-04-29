@@ -64,22 +64,34 @@ const DEFAULT_CARD: Card = {
 
 export interface CardsEditorProps {
   initial?: Partial<CardsParams>;
+  value?: CardsParams;
+  onChange?: (next: CardsParams) => void;
   iconData?: Record<string, IconMeta>;
   onSave?: (params: CardsParams) => void;
   onCancel?: () => void;
+  hideFooter?: boolean;
 }
 
 type Tab = 'general' | 'content';
 
 export function CardsEditor({
   initial,
+  value,
+  onChange,
   iconData = {},
   onSave,
   onCancel,
+  hideFooter = false,
 }: CardsEditorProps) {
-  const [params, setParams] = useState<CardsParams>(() =>
+  const [internalParams, setInternalParams] = useState<CardsParams>(() =>
     CardsParamsSchema.parse(initial ?? {})
   );
+  const params = value ?? internalParams;
+  const setParams = (next: CardsParams | ((prev: CardsParams) => CardsParams)): void => {
+    const resolved = typeof next === 'function' ? next(params) : next;
+    if (onChange) onChange(resolved);
+    else setInternalParams(resolved);
+  };
   const [tab, setTab] = useState<Tab>('general');
   const [selectedCardIdx, setSelectedCardIdx] = useState<number>(0);
 
@@ -272,23 +284,27 @@ export function CardsEditor({
           </div>
         )}
 
-        <hr className={styles.divider} />
-        <div className={styles.cardActions}>
-          {onCancel && (
-            <button type="button" className={styles.btn} onClick={onCancel}>
-              Close
-            </button>
-          )}
-          {onSave && (
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.btnPrimary}`}
-              onClick={() => onSave(params)}
-            >
-              Save
-            </button>
-          )}
-        </div>
+        {!hideFooter && (onCancel || onSave) && (
+          <>
+            <hr className={styles.divider} />
+            <div className={styles.cardActions}>
+              {onCancel && (
+                <button type="button" className={styles.btn} onClick={onCancel}>
+                  닫기
+                </button>
+              )}
+              {onSave && (
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnPrimary}`}
+                  onClick={() => onSave(params)}
+                >
+                  삽입
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className={styles.preview}>
