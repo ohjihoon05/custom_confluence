@@ -168,6 +168,62 @@ AJS.MacroBrowser.setMacroJsOverride("wonui-cards", {  // ← atlassian-plugin.xm
 - **미러링 plugin은 원본 JAR과 파일 단위 정합성을 맞춰야 한다** — `previews/*.vm`(매크로 미리보기), `webfonts/`(FontAwesome), `composition/`(자산) 디렉토리를 `aura-3.8.0.jar`에서 그대로 복사한다. 특히 `previews/Cards.vm`이 누락되면 `EditorImagePlaceholder` 메커니즘이 깨져서 V4 매크로 브라우저가 placeholder를 못 받고 → 편집 패널은 뜨지만 Insert 시 삽입 실패. 빌드 후 `unzip -l target/*.jar`로 이 세 디렉토리 존재를 확인한다. 디핑 절차는 `docs/AURA_3.8.0_ANALYSIS.md` §14 참조.
 - **분석 기준 문서**: `docs/AURA_3.8.0_ANALYSIS.md`가 원본 JAR(`aura-3.8.0.jar`)의 정밀 분석. 신규 매크로 추가/디버깅/리팩터링 시 가장 먼저 참고. 옛 `docs/AURA_ANALYSIS.md`는 mine/ 기반(왜곡된 상태) 분석이라 신뢰도 낮음.
 
+## 자체 React 매크로 편집 패널 (Cards 매크로, Phase 0~10 완료, 1.0.23에서 동작 검증)
+
+Aura main.js 대체용 자체 React 패널을 만들었음 (`src/main/resources/client-custom/`). **Cards 매크로**는 이제 우리 자체 패널로 동작. 다른 매크로(Button/Panel/Tab/...)는 여전히 Aura main.js 사용.
+
+### 빌드 파이프라인
+- **Vite 5 + React 18 + TypeScript** (lib mode IIFE)
+- `frontend-maven-plugin`: Node 20.11 자동 설치 + npm install + npm run build
+- `maven-resources-plugin`: `dist/` → `client-custom-built/` 복사
+- `atlas-package -P server -Dmaven.test.skip=true` 한 줄로 끝
+- `pom.xml`에 `<compressResources>false</compressResources>` 필수 (Closure Compiler가 ES2019+ 문법 파싱 실패하는 문제 회피)
+
+### 빌드 시 정적 치환 필수
+- `vite.config.ts`의 `define: { 'process.env.NODE_ENV': JSON.stringify('production') }` — 안 하면 React 번들이 `process is not defined`로 batch.js 통째로 깨짐 (1.0.20에서 수정)
+- 번들 사이즈: 547KB → 215KB (production 모드 + dev 코드 제거)
+
+### web-resource 등록 (atlassian-plugin.xml)
+**JS와 CSS 둘 다 명시 필수** (1.0.22에서 발견):
+```xml
+<web-resource key="wonikips-editor-resources" name="WonikIPS Editor (React)">
+    <dependency>com.atlassian.auiplugin:ajs</dependency>
+    <resource type="download" name="wonikips-editor.js" location="/client-custom-built/wonikips-editor.js"/>
+    <resource type="download" name="wonikips-editor.css" location="/client-custom-built/wonikips-editor.css"/>
+    <context>atl.general</context>
+</web-resource>
+```
+CSS Modules는 hash 클래스명을 JS에 임베드하지만 실제 CSS 규칙은 별도 `.css` 파일로 추출됨. CSS 누락 시 모달이 DOM엔 있지만 0×0 invisible.
+
+### V4 매크로 브라우저 통합 (`setMacroJsOverride` monkey-patch)
+Aura main.js가 `setMacroJsOverride('aura-cards', ...)`로 자기 핸들러 등록 → 우리 등록을 후속에 덮어씀. 단순한 재등록이나 이벤트 바인딩으로는 부족. **함수 자체를 monkey-patch해서 'aura-cards'에 대한 모든 호출을 우리 opener로 강제** (1.0.21에서 적용):
+```ts
+const original = AJS.MacroBrowser.setMacroJsOverride.bind(AJS.MacroBrowser);
+AJS.MacroBrowser.setMacroJsOverride = function (name, override) {
+  if (name === 'aura-cards') {
+    return original(name, { opener: ourOpener });  // 강제
+  }
+  return original(name, override);  // 다른 매크로는 통과
+};
+```
+다른 매크로는 영향 없음.
+
+### icondata는 fetch로 동적 로드
+1.1MB icondata.json을 번들에 임베딩하면 페이지 로드 시 부담. 매크로 패널 처음 열릴 때 `fetch('/download/resources/com.uiux.confluence-macro/templates/icondata.json')`로 가져옴. `atlassian-plugin.xml`에 `<resource type="download" name="templates/" location="/templates"/>` 추가 필수.
+
+### Dialog level state lifting + 한국어 footer
+CardsEditor 사이드바의 자체 footer는 nested scroll에 묻혀 가려질 수 있음. 그래서 **Dialog 레벨에 state lifting** (`v4-adapter`의 `CardsDialogShell`) + 항상 보이는 footer에 "취소"/"삽입" 버튼 (1.0.23). CardsEditor는 controlled mode(`value`/`onChange`) + `hideFooter` prop 지원.
+
+### 디버깅 시 의심 우선순위 (실증)
+1. CSS 등록 누락 → 모달 invisible
+2. `process.env.NODE_ENV` 정적 치환 누락 → batch.js 깨짐
+3. `compressResources=false` 누락 → Closure Compiler 빌드 실패
+4. monkey-patch 미적용 → Aura가 우리 등록 덮어씀
+5. URL 패턴 매칭 가드(isEditPage 등) → `resumedraft.action` 등 누락 시 등록 안 됨 → 가드 자체 제거 권장 (1.0.19)
+
+### 상세 계획 + 회귀 기록
+`docs/CUSTOM_PANEL_PLAN.md` (4주 일정 + 검증 결과), `docs/ADR.md` (ADR-015~016).
+
 ## 주의사항
 - DC 7.19는 PostgreSQL 12–14 지원 (15 이상 미지원)
 - `docker-compose.yml`에서 `ATL_CLUSTER_TYPE`, `CONFLUENCE_SHARED_HOME` 제거 — 단일 노드에서 ClusterJoinType 오류 유발

@@ -191,6 +191,61 @@ ls /tmp/ours/previews /tmp/ours/webfonts /tmp/ours/composition
 
 ---
 
+### ADR-015: 자체 React 매크로 편집 패널 — Vite 빌드 + setMacroJsOverride monkey-patch
+
+**결정**: Cards 매크로의 편집 패널을 Aura main.js 대신 자체 React 컴포넌트로 대체. Vite 5 + React 18 + TypeScript IIFE lib 모드로 번들링. V4 매크로 브라우저와의 통합은 `AJS.MacroBrowser.setMacroJsOverride` 함수 자체를 monkey-patch하여 `aura-cards` 매크로에 대한 모든 호출을 우리 opener로 강제하는 방식.
+
+**이유**: Aura main.js는 minified 2.84MB 번들이라 디자인 커스터마이징이 사실상 불가능. WonikIPS 디자인 시스템을 적용하려면 자체 React 패널이 필수. Aura는 page-edit-loaded 등 이벤트에서 setMacroJsOverride를 후속 호출하여 우리 등록을 덮어쓸 수 있으므로, 단순 재등록이나 이벤트 바인딩으로는 불충분. 함수 자체를 가로채면 Aura가 어느 시점에 호출하든 결과는 항상 우리 핸들러.
+
+**트레이드오프**: 다른 매크로(Button/Panel/Tab 등)는 여전히 Aura main.js 사용. 점진적 전환 가능하지만 Cards 외 매크로 디자인 통제권은 아직 없음. 빌드에 Node 20 + Maven plugin 통합 필요.
+
+**핵심 검증된 패턴 (1.0.16~1.0.23 회귀 추적 결과)**:
+| 단계 | 함정 | 해결 |
+|------|------|------|
+| 빌드 | Confluence Closure Compiler가 ES2019+ 문법(`} catch {`, optional chaining 등) 파싱 실패 | `pom.xml`에 `<compressResources>false</compressResources>` |
+| 빌드 | React 18이 `process.env.NODE_ENV` dynamic 참조 → 브라우저에서 `process is not defined` throw → batch.js 전체 중단 | `vite.config.ts`의 `define: { 'process.env.NODE_ENV': JSON.stringify('production') }` |
+| 등록 | atlassian-plugin.xml에 JS만 등록, CSS Modules 출력(`.css`) 누락 | web-resource에 JS + CSS 둘 다 명시 |
+| 등록 | URL 가드(`isEditPage()` 패턴 매칭)가 `resumedraft.action` 등 놓침 | 가드 자체 제거. setMacroJsOverride는 매크로 브라우저 열려야 발동하니 일반 페이지 등록 무해 |
+| V4 통합 | Aura가 page-edit-loaded 이벤트에서 setMacroJsOverride 재호출 → 우리 등록 덮어씀 | `setMacroJsOverride` 함수 자체 monkey-patch. `name === 'aura-cards'`는 항상 우리 opener로 강제 |
+| 자원 로드 | icondata.json 1.1MB를 번들에 임베딩 → 모든 페이지 로드 부담 | atlassian-plugin.xml에 `<resource type="download" name="templates/" .../>` 추가 후 fetch 동적 로드 |
+| UI | CardsEditor 사이드바 자체 footer가 nested scroll에 묻혀 가려짐 | Dialog level state lifting + 항상 보이는 footer에 "삽입"/"취소" 버튼 |
+
+**검증 절차**:
+1. `unzip -l target/*.jar | grep client-custom-built` — JS + CSS 둘 다 있어야
+2. `unzip -p target/*.jar atlassian-plugin.xml | grep wonikips-editor` — JS + CSS 둘 다 등록되어야
+3. `unzip -p target/*.jar client-custom-built/wonikips-editor.js | grep -c 'process\.'` — 0이어야 (Vite define 정상 작동)
+4. 페이지 편집 진입 → 콘솔에 `[WonikIPS Editor] Monkey-patched setMacroJsOverride for aura-cards` 떠야
+5. Cards 매크로 클릭 → 풀스크린 React 모달 + 하단 "삽입" 버튼 보여야
+
+**상세 계획 + 일정**: `docs/CUSTOM_PANEL_PLAN.md` 참조.
+
+**다음 작업 (선택)**:
+- Button/Panel/Tab/Title/Divider 등 다른 매크로 자체 패널화 (Phase 11+)
+- WonikIPS 디자인 토큰 적용 (현재는 Atlassian 기본 톤)
+- monkey-patch 패턴 다른 매크로로 확장
+
+---
+
+### ADR-016: monkey-patch는 Aura 후속 등록을 강제 우회하는 유일한 방법
+
+**결정**: V4 환경에서 Aura 매크로 편집 핸들러를 우리 것으로 대체할 때, 단순 `setMacroJsOverride` 호출이 아닌 함수 자체 monkey-patch를 사용한다.
+
+**이유**: 1.0.21까지 시도한 방식들이 모두 실패:
+- 즉시 등록 → Aura가 page-edit-loaded에서 재등록하며 덮어씀
+- AJS.bind('init.rte', register) → Aura 핸들러가 우리보다 늦게 실행되면 또 덮어씀
+- setInterval polling 재등록 → polling 종료 후 Aura가 한 번 더 호출 가능
+- 이벤트마다 reRegister → 이벤트 외 시점에도 Aura 호출 가능성 차단 못함
+
+monkey-patch는 함수 자체를 가로채므로 시점에 무관하게 항상 우리 opener를 강제. `__wonikipsPatched` 플래그로 중복 패치 방지.
+
+**트레이드오프**: 함수 시그니처 변경 시 호환성 깨질 위험. Confluence 7.19.8 → 추후 버전에서 `setMacroJsOverride` API 시그니처가 바뀌면 monkey-patch 코드도 수정 필요. 다만 V3 호환 셰임이라 변경 가능성 낮음.
+
+**금지 사항**:
+- `name !== 'aura-cards'` 호출은 반드시 원본 함수에 그대로 통과 (다른 매크로 영향 차단)
+- `original` 함수에 `this` 바인딩 보존 필수 (`.bind(AJS.MacroBrowser)`)
+
+---
+
 ### ADR-004: 로컬 Docker 환경으로 테스트
 
 **결정**: 별도 서버 없이 Docker Compose로 로컬 테스트  
