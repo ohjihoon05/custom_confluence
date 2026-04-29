@@ -8,9 +8,23 @@
 
 `/docs/` 하위 문서(PRD, ARCHITECTURE, ADR 등)를 읽고 프로젝트의 기획·아키텍처·설계 의도를 파악한다. 필요시 Explore 에이전트를 병렬로 사용한다.
 
+**매크로 작업이라면** 다음 문서를 우선 읽는다:
+- `docs/AURA_3.8.0_ANALYSIS.md` §4 — 대상 매크로의 파라미터 명세
+- `docs/CUSTOM_PANEL_PLAN.md` §13 — Cards 매크로 검증 결과 + 회귀 추적
+- `docs/DEVELOPMENT_GUIDE.md` §10 — 새 매크로 추가 7단계
+- `docs/ADR.md` ADR-015~016 — 자체 React 패널 + monkey-patch 결정
+- `CLAUDE.md` "자체 React 매크로 편집 패널" 섹션 — 검증된 빌드/통합 패턴
+- `aura_image/{macro}/` — 사용자가 캡처한 Aura UI 스크린샷 (없으면 캡처부터 요청)
+
 ### B. 논의
 
 구현을 위해 구체화하거나 기술적으로 결정해야 할 사항이 있으면 사용자에게 제시하고 논의한다.
+
+**매크로 작업 결정 포인트** (시작 전 확정):
+- 매크로별 schema가 Aura Java 키와 어떻게 매핑되는가? (Cards의 alignment↔layout 같은 변환)
+- body 처리(매크로 본문 콘텐츠) 필요한가? (Panel, BackgroundImage, Tab은 필요)
+- 신규 컴포넌트 필요한가? (BackgroundImage→ImageUploader, Tab→nested macro)
+- 디자인 토큰 적용 시점? (개별 매크로 / 일괄)
 
 ### C. Step 설계
 
@@ -26,6 +40,23 @@
 6. **주의사항은 구체적으로** — "조심해라" 대신 "X를 하지 마라. 이유: Y" 형식으로 적는다.
 7. **네이밍** — step name은 kebab-case slug로, 해당 step의 핵심 모듈/작업을 한두 단어로 표현한다 (예: `project-setup`, `api-layer`, `auth-flow`).
 
+#### 매크로 작업 표준 step 분할
+
+매크로 한 개를 자체 패널화할 때는 다음 8단계로 쪼갠다 (각 step 1~3시간):
+
+| step | name | 산출물 |
+|------|------|--------|
+| 0 | `{macro}-schema` | `src/schema/{macro}.ts` (Zod) + `{macro}-mapper.ts` (UI↔Java) |
+| 1 | `{macro}-editor` | `src/editors/{Macro}Editor/{Macro}Editor.{tsx,module.css}` (controlled mode + hideFooter prop) |
+| 2 | `{macro}-dialog-shell` | `host/v4-adapter.ts`에 `{Macro}DialogShell` 추가 (state lifting + footer 삽입/취소) |
+| 3 | `{macro}-monkey-patch` | `host/v4-adapter.ts` `installMonkeyPatch`에 `name === 'aura-{macro}'` 분기 추가 |
+| 4 | `build-verify` | Vite tsc 0 errors + bundle 빌드 + JAR 4가지 검증 |
+| 5 | `confluence-test` | Confluence 업로드 + 콘솔 5줄 확인 + 매크로 클릭 + 삽입 + 저장 + 렌더링 |
+| 6 | `regression-check` | 다른 매크로 (Cards 포함) 동작 회귀 없는지 검증 |
+| 7 | `commit-push` | git commit (의도 + 검증 결과) + push |
+
+캡처(`aura_image/{macro}/`)는 step 0 시작 전 사용자가 준비. 없으면 step 0이 `blocked` 상태.
+
 ### D. 파일 생성
 
 사용자가 승인하면 아래 파일들을 생성한다.
@@ -37,10 +68,7 @@
 ```json
 {
   "phases": [
-    {
-      "dir": "0-mvp",
-      "status": "pending"
-    }
+    { "dir": "0-mvp", "status": "pending" }
   ]
 }
 ```
@@ -129,6 +157,51 @@ npm test        # 테스트 통과
 - 기존 테스트를 깨뜨리지 마라
 ```
 
+#### 매크로 작업 step 템플릿 (검증된 AC 커맨드)
+
+매크로 step의 AC + 검증은 다음을 사용한다 (Cards 1.0.23에서 검증):
+
+```bash
+# Vite 타입 체크 + 빌드
+cd macros/wonikips-confluence-macro/src/main/resources/client-custom
+npx tsc --noEmit
+npm run build
+
+# Maven JAR 빌드
+cd ../../../..
+C:/Users/ohjih/atlassian-sdk/bin/atlas-package.bat -P server -Dmaven.test.skip=true
+
+# JAR 4가지 검증
+JAR=target/wonikips-confluence-macro-X.Y.Z-SNAPSHOT-server.jar
+unzip -l "$JAR" | grep "client-custom-built/wonikips-editor"          # JS + CSS 둘 다
+unzip -p "$JAR" atlassian-plugin.xml | grep -c "wonikips-editor.css"   # 1
+unzip -p "$JAR" client-custom-built/wonikips-editor.js | grep -c "process\." # 0
+unzip -p "$JAR" client-custom-built/wonikips-editor.js | grep -c "Monkey-patched" # 1
+```
+
+수동 검증 (Confluence 업로드 후):
+```
+[WonikIPS Editor] bundle loaded
+[WonikIPS Editor] Hello WonikIPS {version: '...'}
+[WonikIPS Editor] Scheduling V4 host registration
+[WonikIPS Editor] Monkey-patched setMacroJsOverride for aura-{macro}
+[WonikIPS Editor] iconData loaded 1458
+```
++ 매크로 클릭 → React 모달 + "삽입" 버튼 → 본문 삽입 → 페이지 저장 → 렌더링.
+
+#### 매크로 작업 step별 금지사항 (회귀 방지)
+
+다음 항목을 step 금지사항에 명시한다 (1.0.16~1.0.23 회귀에서 학습):
+
+- **`pom.xml`의 `<compressResources>false</compressResources>` 제거 금지** — Closure Compiler ES2019+ 파싱 실패
+- **`vite.config.ts`의 `define: { 'process.env.NODE_ENV': ... }` 제거 금지** — `process is not defined` throw로 batch.js 깨짐
+- **`atlassian-plugin.xml`의 `wonikips-editor-resources` 등 web-resource에서 CSS 제거 금지** — 모달 invisible
+- **CSS 클래스 prefix `aura-*` 변경 금지** — Velocity 템플릿 + tabs.css와 정합 깨짐 (ADR-014)
+- **매크로 `name`/`key` 변경 금지** — Aura main.js 하드코딩과 매칭 (`aura-cards`, `aura-button` 등)
+- **`main.js` (Aura React 번들) 직접 수정 금지** — UI 라벨 텍스트만 1회-등장 검증 후 byte-level 치환 가능 (ADR-014)
+- **monkey-patch에서 `name !== 'aura-{macro}'` 호출은 반드시 원본에 통과** — 다른 매크로 영향 차단
+- **`previews/*.vm` 디렉토리 누락 금지** — `EditorImagePlaceholder` 매크로(Cards/Button/Divider) 삽입 실패
+
 ### E. 실행
 
 ```bash
@@ -149,3 +222,38 @@ execute.py가 자동으로 처리하는 것:
 
 - **error 발생 시**: `phases/{task-name}/index.json`에서 해당 step의 `status`를 `"pending"`으로 바꾸고 `error_message`를 삭제한 뒤 재실행한다.
 - **blocked 발생 시**: `blocked_reason`에 적힌 사유를 해결한 뒤, `status`를 `"pending"`으로 바꾸고 `blocked_reason`을 삭제한 뒤 재실행한다.
+
+---
+
+## F. 매크로 작업 의심 우선순위 (디버깅 시)
+
+매크로 자체 패널이 동작하지 않을 때 의심하는 순서 (실증):
+
+1. **CSS web-resource 등록 누락** → 모달이 DOM엔 있지만 invisible
+2. **Vite `define`으로 NODE_ENV 정적 치환 누락** → batch.js throw로 페이지 깨짐
+3. **`compressResources=false` 누락** → Closure Compiler 빌드 실패
+4. **monkey-patch 미적용 또는 분기 누락** → Aura가 우리 등록 덮어씀
+5. **URL 패턴 가드(`isEditPage()` 등)** → 일부 편집 URL 매칭 실패. 가드 자체 제거 권장
+6. **매크로 `name`/`key`가 `aura-*` 아님** → main.js와 매칭 실패
+7. **`previews/*.vm` 누락** → `EditorImagePlaceholder` 매크로 삽입 실패
+8. **옛 plugin key(`com.ohjih.*` 등) 잔재** → web-resource batch 깨짐
+
+진단 콘솔 명령:
+```js
+window.__wonikipsEditor                                  // 객체 → 번들 로드됨
+typeof AJS.MacroBrowser.setMacroJsOverride               // "function" → API 살아있음
+AJS.MacroBrowser.setMacroJsOverride.__wonikipsPatched    // true → monkey-patch 적용됨
+```
+
+---
+
+## G. 참조 문서 (매크로 작업 시 우선순위)
+
+| 우선순위 | 문서 | 언제 |
+|---------|------|------|
+| 1 | `CLAUDE.md` | 프로젝트 가드레일, CRITICAL 규칙 — 모든 작업 시작 전 |
+| 2 | `docs/DEVELOPMENT_GUIDE.md` | 빌드/배포/디버깅 cheatsheet — 막힐 때 |
+| 3 | `docs/AURA_3.8.0_ANALYSIS.md` §4 | 대상 매크로 파라미터 — Schema 작성 시 |
+| 4 | `docs/CUSTOM_PANEL_PLAN.md` §13 | 1.0.16~1.0.23 회귀 추적 — 비슷한 증상 발생 시 |
+| 5 | `docs/MACRO_EXPANSION_PLAN.md` | 7개 매크로 확장 일정 — 어떤 매크로 다음에 |
+| 6 | `docs/ADR.md` | 결정 근거 — "왜 이렇게 했는가" |
