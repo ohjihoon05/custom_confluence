@@ -1,6 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import { CardsEditor } from './editors/CardsEditor/CardsEditor';
 import { createV4Host } from './host/v4-adapter';
+import { setIconDataProvider } from './macros/cards';
+import './macros'; // eager self-register all macros into registry
 import type { IconMeta } from './components';
 
 declare global {
@@ -23,8 +25,11 @@ declare global {
 
 console.log('[WonikIPS Editor] bundle loaded');
 
+let iconDataCache: Record<string, IconMeta> = {};
+setIconDataProvider(() => iconDataCache);
+
 window.__wonikipsEditor = {
-  version: '0.4.0-safe-boot',
+  version: '0.5.0-registry',
   loadedAt: Date.now(),
   mountCardsEditor: (container, options) => {
     const root = createRoot(container);
@@ -62,6 +67,7 @@ const demoRoot =
 if (demoRoot) {
   loadIconData()
     .then((iconData) => {
+      iconDataCache = iconData;
       const root = createRoot(demoRoot);
       root.render(
         <CardsEditor
@@ -81,16 +87,21 @@ if (demoRoot) {
       console.error('[WonikIPS Editor] Demo iconData load failed:', err);
     });
 } else {
-  // Confluence 환경 — 모든 페이지에서 V4 host 등록 시도.
-  // setMacroJsOverride 자체는 매크로 브라우저 열려야 발동하니 일반 페이지엔 무해.
-  // URL 패턴 매칭(editpage/resumedraft/createpage 등 다양)이 깨지기 쉬워 가드 제거.
+  // Confluence 환경. setMacroJsOverride 자체는 매크로 브라우저 열려야 발동.
   try {
     console.log('[WonikIPS Editor] Scheduling V4 host registration');
-    const host = createV4Host({
-      iconData: {},
-      iconLoader: loadIconData,
-    });
-    host.registerCardsMacro();
+    const host = createV4Host();
+    host.registerMacros();
+
+    // iconData 비동기 로드 → cache 채우기 (Cards opener가 호출 시점에 provider로 조회)
+    loadIconData()
+      .then((data) => {
+        iconDataCache = data;
+        console.log('[WonikIPS Editor] iconData loaded', Object.keys(data).length);
+      })
+      .catch((err) => {
+        console.error('[WonikIPS Editor] iconData load failed:', err);
+      });
   } catch (err) {
     console.error('[WonikIPS Editor] Failed to register V4 host:', err);
   }

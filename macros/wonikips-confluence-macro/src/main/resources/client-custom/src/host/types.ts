@@ -1,7 +1,7 @@
 import type { CardsParams } from '../schema/cards';
 
 export interface MacroEditorHost {
-  registerCardsMacro: () => void;
+  registerMacros: () => void;
 }
 
 export interface MacroBrowserMacro {

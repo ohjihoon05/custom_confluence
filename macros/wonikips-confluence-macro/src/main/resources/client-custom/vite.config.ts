@@ -25,6 +25,10 @@ export default defineConfig({
     },
     rollupOptions: {
       external: ['jquery', 'AJS'],
+      // src/macros/* 는 side-effect import (registerMacro 호출). tree-shaking 보호.
+      treeshake: {
+        moduleSideEffects: (id) => /[\\/]src[\\/]macros[\\/]/.test(id),
+      },
       output: {
         globals: { jquery: 'jQuery', AJS: 'AJS' },
         assetFileNames: (asset) => asset.name === 'style.css' ? 'wonikips-editor.css' : '[name][extname]',
