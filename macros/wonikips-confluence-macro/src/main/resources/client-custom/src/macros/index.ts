@@ -10,3 +10,4 @@ import './button';
 import './divider';
 import './title';
 import './panel';
+import './background-image';

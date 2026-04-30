@@ -2,7 +2,7 @@
 
 > Cards 매크로(1.0.23)에서 검증된 패턴을 다른 매크로로 확장.
 > 작성: 2026-04-29
-> 진행: Phase 11(Button 1.0.26) → Phase 12(Divider) → Phase 13(Title 1.1.1~1.1.3) → **Phase 14(Panel 1.1.4~1.1.7) ✓**. 다음 = Phase 15(BackgroundImage).
+> 진행: Phase 11(Button 1.0.26) → Phase 12(Divider) → Phase 13(Title 1.1.1~1.1.3) → Phase 14(Panel 1.1.4~1.1.7) → **Phase 15(BackgroundImage 1.1.8) ✓**. 다음 = Phase 16(Tab/TabCollection).
 
 ---
 
@@ -34,8 +34,8 @@ Phase 11 ✓ Button         (1.0.26)
 Phase 12 ✓ Divider
 Phase 13 ✓ PrettyTitle    (1.1.1~1.1.3)
 Phase 14 ✓ Panel          (1.1.4~1.1.7)  ← RICH_TEXT body + nested JSON 직렬화 패턴 추가
-Phase 15 → BackgroundImage (2~3일)        ← 다음. 이미지 업로드 컴포넌트 신규 + RICH_TEXT body 재사용
-Phase 16 → Tab/TabCollection (5~7일)       ← nested macro 추상화
+Phase 15 ✓ BackgroundImage (1.1.8)         ← RICH_TEXT body 재사용. 평탄 K=V (Java가 직접 map.get) — Panel과 다름. 외부 URL only(첨부 picker는 후속)
+Phase 16 → Tab/TabCollection (5~7일)       ← 다음. nested macro 추상화
 Phase 17 → 디자인 토큰 통합 + 한국어 i18n (3일)
 Phase 18 → DC 배포 + 회귀 검증 (1일)
 ```
@@ -105,16 +105,27 @@ schema: text, fontSize, fontWeight, color, accentColor,
 
 **iconData provider 회귀 fix(동봉)**: 1.0.24 registry 패턴 도입 후 main.tsx가 cards의 setIconDataProvider만 호출하던 구조라 Button/Divider/Panel의 IconPicker가 빈 상태였음(노출은 1.1.4 Panel header.icon이 핵심 UX라 처음). macro-registry로 통합. ADR-020.
 
-### 3.5 BackgroundImage (Phase 15)
+### 3.5 BackgroundImage (Phase 15) — 완료 (1.1.8)
 
-**새 컴포넌트 필요**: ImageUploader (또는 ImageUrlInput).
+**구현 결과** ((a) URL input 단순화 노선 채택):
+- 노출 컨트롤 5개(캡처와 일치): Content Vertical Position(`flex-start`/`center`/`bottom-right`), Minimum Height(0~1000px slider), Padding(0~100px slider), Add Background Color toggle + ColorPicker, Add Background Image toggle + URL input.
+- `backgroundPosition`("center center") / `backgroundSize`("cover")는 Aura default로 hidden 고정 — 후속 빌드에서 노출.
+- Confluence 첨부 picker(option b/c)는 후속. `backgroundImageHrefType`은 외부 URL일 때 `"link"` 명시(Aura main.js 패턴 보존).
 
-옵션:
-- (a) **URL input 단순화**: 외부 이미지 URL만 입력. 가장 빠름.
-- (b) **Confluence attachment picker**: AJS API 활용 (`AJS.AttachmentPicker` 또는 자체 구현).
-- (c) **Drag & drop 업로드**: 신규 첨부 + URL 사용.
+**평탄 K=V 결정** (ADR-021 update):
+Panel의 nested `styles` JSON 패턴을 재사용할까 검토했으나, `BackgroundImage.executeWeb`이 `map.get("backgroundColor")` / `map.get("containerMinHeight")` 등 평탄 키를 직접 읽기 때문에 Panel 패턴 부적합. nullable 필드(`backgroundColor`/`backgroundImageHref`)는 mapper에서 키 자체 omit — Java 쪽 `map.containsKey(...)` 분기와 정합. mapper 30줄로 끝.
 
-권장 진행: (a) 먼저 → 나중에 (b)/(c) 보강.
+**RICH_TEXT body 재사용** (ADR-019):
+Panel과 동일하게 opener의 `macroBrowserComplete` 호출에 `bodyHtml: ''` 명시. 누락 시 `/rest/tinymce/1/macro/placeholder` 500 (Missing storage body NPE).
+
+**산출물 4개 + 1줄**:
+- `src/schema/background-image.ts` (Zod)
+- `src/schema/background-image-mapper.ts` (UI ↔ Java)
+- `src/editors/BackgroundImageEditor/` (.tsx + .module.css)
+- `src/macros/background-image.ts` (Dialog shell + opener + `registerMacro`)
+- `src/macros/index.ts`에 `import './background-image';` 한 줄
+
+`host/v4-adapter.ts`, `main.tsx`, Java 매크로 클래스, `atlassian-plugin.xml` 모두 무수정. 1.0.26 Button 이후 정착된 registry 패턴이 그대로 동작 — 5번째 매크로 추가도 4파일 + 1줄.
 
 ### 3.6 TabCollection + Tab (Phase 16)
 
